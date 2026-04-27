@@ -1,0 +1,2484 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrefzRoute</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:    #f5f5f3;
+    --bg2:   #ffffff;
+    --bg3:   #eeeeed;
+    --border:#d6d5d0;
+    --accent:#2d7a2d;
+    --text:  #1a1a18;
+    --muted: #888880;
+    --danger:#c0392b;
+    --radius:12px;
+    --mono:  'DM Mono', monospace;
+    --sans:  'Syne', sans-serif;
+  }
+
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; line-height:1.5; }
+
+  /* HEADER */
+  header {
+    border-bottom:1px solid var(--border);
+    padding:0 2rem;
+    display:flex; align-items:center; justify-content:space-between;
+    height:56px; position:sticky; top:0; background:var(--bg); z-index:100;
+  }
+  .logo { font-size:13px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); font-family:var(--mono); }
+  .logo span { color:var(--muted); }
+  .hdr-right { display:flex; align-items:center; gap:1.5rem; }
+  .status { font-family:var(--mono); font-size:11px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .dot.ok  { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .dot.err { background:var(--danger); }
+
+  /* LAYOUT */
+  .app { display:grid; grid-template-columns:380px 1fr; height:calc(100vh - 56px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    border-right:1px solid var(--border);
+    overflow-y:auto; padding:1.5rem;
+    display:flex; flex-direction:column; gap:1.25rem;
+    background:var(--bg2);
+  }
+  .sec-label {
+    font-family:var(--mono); font-size:10px; letter-spacing:.15em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:.5rem;
+  }
+  .card {
+    background:var(--bg3); border:1px solid var(--border);
+    border-radius:var(--radius); padding:1rem 1.25rem;
+  }
+  label { display:block; font-size:12px; color:var(--muted); font-family:var(--mono); margin-bottom:6px; letter-spacing:.05em; }
+  input[type=text], input[type=number], textarea {
+    width:100%; background:var(--bg); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:var(--mono);
+    font-size:13px; padding:10px 12px; outline:none; transition:border-color .2s;
+  }
+  input:focus, textarea:focus { border-color:var(--accent); }
+  textarea { resize:vertical; min-height:160px; line-height:1.6; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+
+  /* DROP ZONE */
+  .drop-zone {
+    border:1px dashed var(--border); border-radius:8px; padding:1rem;
+    text-align:center; cursor:pointer; transition:border-color .2s, background .2s;
+    font-family:var(--mono); font-size:12px; color:var(--muted); display:block;
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color:var(--accent); background:rgba(45,122,45,.06); color:var(--text); }
+  .drop-zone input { display:none; }
+
+  /* BUTTONS */
+  .btn {
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    font-family:var(--sans); font-weight:700; font-size:13px;
+    padding:11px 20px; border-radius:8px; border:none; cursor:pointer;
+    transition:all .2s; letter-spacing:.04em; text-transform:uppercase; text-decoration:none;
+  }
+  .btn-primary { background:var(--accent); color:#ffffff; width:100%; font-size:14px; padding:14px; }
+  .btn-primary:hover:not(:disabled) { background:#256625; transform:translateY(-1px); }
+  .btn-primary:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .btn-sm { background:var(--bg); color:var(--muted); border:1px solid var(--border); font-size:11px; padding:6px 12px; }
+  .btn-sm:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* PROGRESS */
+  .prog-wrap { display:none; }
+  .prog-wrap.on { display:block; }
+  .prog-bg { background:var(--bg); border-radius:999px; height:4px; overflow:hidden; margin-top:8px; }
+  .prog-fill { height:100%; background:var(--accent); border-radius:999px; width:0%; transition:width .4s ease; }
+  .prog-lbl { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:6px; }
+
+  /* LOG */
+  .log-box {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding:.75rem 1rem; font-family:var(--mono); font-size:11px; color:var(--muted);
+    max-height:120px; overflow-y:auto; display:none;
+    line-height:1.8;
+  }
+  .log-box.on { display:block; }
+  .log-box .ok  { color:var(--accent); }
+  .log-box .err { color:var(--danger); }
+  .log-box .inf { color:var(--text); }
+
+  /* MAIN */
+  .main { overflow-y:auto; padding:1.5rem 2rem; background:var(--bg); }
+  .empty-state {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100%; color:var(--muted); font-family:var(--mono); font-size:13px;
+    text-align:center; gap:1rem;
+  }
+  .empty-ico { font-size:48px; opacity:.3; line-height:1; }
+
+  /* RESULTS */
+  .res-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem; }
+  .res-title { font-size:20px; font-weight:800; letter-spacing:-.02em; }
+  .res-title span { color:var(--accent); }
+  .res-meta { font-family:var(--mono); font-size:11px; color:var(--muted); display:flex; gap:1.5rem; }
+  .res-meta strong { color:var(--text); }
+
+  /* ROUTE CARDS */
+  .routes-grid { display:grid; gap:1rem; }
+  .route-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:border-color .2s; }
+  .route-card:hover { border-color:#3a3f38; }
+  .route-hdr {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:1rem 1.25rem; cursor:pointer; user-select:none; gap:1rem;
+  }
+  .route-hdr:hover { background:var(--bg3); }
+  .route-id {
+    font-family:var(--mono); font-size:11px; color:var(--accent);
+    background:rgba(45,122,45,.1); border:1px solid rgba(45,122,45,.2);
+    border-radius:4px; padding:2px 8px; letter-spacing:.08em; white-space:nowrap;
+  }
+  .route-name { font-weight:700; font-size:15px; flex:1; }
+  .route-stats { display:flex; gap:1.25rem; font-family:var(--mono); font-size:11px; color:var(--muted); text-align:right; }
+  .route-stats strong { display:block; color:var(--text); font-size:14px; font-weight:500; }
+  .chev { color:var(--muted); transition:transform .25s; font-size:12px; }
+  .route-card.open .chev { transform:rotate(180deg); }
+  .route-body { display:none; border-top:1px solid var(--border); }
+  .route-card.open .route-body { display:block; }
+  .route-actions { padding:.75rem 1.25rem; background:var(--bg3); display:flex; gap:.5rem; flex-wrap:wrap; border-bottom:1px solid var(--border); }
+  .stops-list { padding:.5rem 0; }
+  .stop-item {
+    display:grid; grid-template-columns:28px 1fr auto;
+    align-items:center; gap:.75rem; padding:.5rem 1.25rem;
+    font-size:13px; border-bottom:1px solid rgba(42,47,41,.5);
+  }
+  .stop-item:last-child { border-bottom:none; }
+  .stop-num { font-family:var(--mono); font-size:11px; color:var(--muted); text-align:right; }
+  .stop-dist { font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap; }
+
+  /* TOAST */
+  .toast {
+    position:fixed; bottom:1.5rem; right:1.5rem;
+    background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+    padding:12px 18px; font-family:var(--mono); font-size:12px; color:var(--text);
+    max-width:380px; z-index:999; display:none;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+    animation:slideIn .25s ease;
+  }
+  .toast.err { border-color:var(--danger); color:var(--danger); }
+  .toast.ok  { border-color:var(--accent); }
+  @keyframes slideIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  .tab-btn {
+    flex:1; background:var(--bg); border:1px solid var(--border); color:var(--muted);
+    font-family:var(--mono); font-size:11px; padding:7px 12px; border-radius:6px;
+    cursor:pointer; transition:all .2s; letter-spacing:.04em;
+  }
+  .tab-btn.active { background:var(--bg3); border-color:var(--accent); color:var(--accent); }
+  .tab-btn:hover:not(.active) { border-color:#3a3f38; color:var(--text); }
+  select {
+    width:100%; background:var(--bg); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:var(--mono);
+    font-size:13px; padding:10px 12px; outline:none; transition:border-color .2s; cursor:pointer;
+  }
+  select:focus { border-color:var(--accent); }
+  .col-check {
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding:7px 10px; cursor:pointer; transition:border-color .2s;
+    font-family:var(--mono); font-size:12px; color:var(--muted);
+  }
+  .col-check:hover { border-color:var(--accent); color:var(--text); }
+  .col-check input[type=checkbox] { accent-color:var(--accent); width:14px; height:14px; cursor:pointer; flex-shrink:0; }
+  .col-check.checked { border-color:rgba(45,122,45,.3); color:var(--text); background:rgba(45,122,45,.06); }
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+
+  @media(max-width:800px){
+    .app{grid-template-columns:1fr}
+    .sidebar{border-right:none;border-bottom:1px solid var(--border);height:auto}
+    .main{height:auto}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span style="color:#e8610a">Trefz</span><span>Route</span></div>
+  <div class="hdr-right">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;">v2.9.2</div>
+    <div class="status"><span class="dot" id="dot"></span><span id="api-lbl">Browser-Modus</span></div>
+    <button class="btn btn-sm" onclick="openSettings()" style="padding:6px 14px;">⚙ Einstellungen</button>
+  </div>
+</header>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.75rem;width:420px;max-width:90vw;display:flex;flex-direction:column;gap:1.25rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:700;font-size:16px;">Einstellungen</div>
+      <button onclick="closeSettings()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+        <label style="margin:0;">OpenRouteService API Keys <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:var(--accent);font-size:10px;margin-left:6px;">→ Kostenlos holen</a></label>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.5rem;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:36px;flex-shrink:0;">Key 1</span>
+          <input type="text" class="ors-key-input" data-idx="0" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImNiYWRiMmY3YjZiYjQ0NGZhZTJhZWVkMzM5MDQ0MzEyIiwiaCI6Im11cm11cjY0In0=" readonly style="font-size:11px;opacity:.5;cursor:not-allowed;user-select:none;">
+          <span style="font-size:12px;color:var(--muted);flex-shrink:0;" title="Gesperrt">🔒</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:36px;flex-shrink:0;">Key 2</span>
+          <input type="text" class="ors-key-input" data-idx="1" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjYyYWQ1MThjMzJiYjRiNjhhNDY2NGQ0NzVkNmVmNjI0IiwiaCI6Im11cm11cjY0In0=" readonly style="font-size:11px;opacity:.5;cursor:not-allowed;user-select:none;">
+          <span style="font-size:12px;color:var(--muted);flex-shrink:0;" title="Gesperrt">🔒</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:36px;flex-shrink:0;">Key 3</span>
+          <input type="text" class="ors-key-input" data-idx="2" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjA1NDMxNzM5MTQ0MTQ2YmRiOTBlMDViNDNhNzYxNzFiIiwiaCI6Im11cm11cjY0In0=" readonly style="font-size:11px;opacity:.5;cursor:not-allowed;user-select:none;">
+          <span style="font-size:12px;color:var(--muted);flex-shrink:0;" title="Gesperrt">🔒</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:36px;flex-shrink:0;">Key 4</span>
+          <input type="text" class="ors-key-input" data-idx="3" value="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImIwNDMxZDM4YmM2NTQ3ZTg5Mjk4NWRlYzFjMDhiNTdiIiwiaCI6Im11cm11cjY0In0=" readonly style="font-size:11px;opacity:.5;cursor:not-allowed;user-select:none;">
+          <span style="font-size:12px;color:var(--muted);flex-shrink:0;" title="Gesperrt">🔒</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:36px;flex-shrink:0;">Key 5</span>
+          <input type="text" class="ors-key-input" data-idx="4" value="" autocomplete="off" placeholder="Optional" style="font-size:11px;">
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px;">Bei Rate Limit wird automatisch zum nächsten Key gewechselt</div>
+    </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;background:var(--bg);border-radius:6px;padding:8px 10px;">
+        Kostenlos · Kein Credit Card · 4 Keys = 8.000 Anfragen/Tag<br>
+        Google Maps nur für Navigation-Links (0 Kosten)
+      </div>
+    <div>
+      <label>OR-Tools Backend URL</label>
+      <input type="text" id="backend-url-input" placeholder="http://localhost:8000"
+        style="font-size:11px;font-family:var(--mono);">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">
+        Lokal: http://localhost:8000 &nbsp;·&nbsp; Cloud: https://deine-app.onrender.com
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;">
+      <div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text);" id="cache-count">0 Adressen im Cache</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Gecachte Adressen kosten keine API-Anfragen</div>
+      </div>
+      <button class="btn btn-sm" onclick="clearGeoCache()" style="white-space:nowrap;flex-shrink:0;">Cache leeren</button>
+    </div>
+    <div>
+      <label>Koordinaten-Überschreibungen</label>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;">
+        Eine Adresse pro Zeile: <strong>Adresse = lat, lng</strong><br>
+        Beispiel: Schulstr. 35, 72764 Reutlingen = 48.4956, 9.2068
+      </div>
+      <textarea id="coord-overrides" rows="4"
+        style="font-size:11px;font-family:var(--mono);resize:vertical;"
+        placeholder="Schulstr. 35, 72764 Reutlingen = 48.4956, 9.2068"></textarea>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button class="btn btn-primary" onclick="saveSettings()" style="flex:1;">Speichern &amp; Schließen</button>
+      <button class="btn btn-sm" onclick="closeSettings();openInfo();" style="flex-shrink:0;">ℹ Wie funktioniert das?</button>
+    </div>
+  </div>
+</div>
+
+<!-- SYSTEM INFO MODAL -->
+<div id="info-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:flex-start;justify-content:center;padding-top:4vh;overflow-y:auto;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.75rem;width:680px;max-width:94vw;display:flex;flex-direction:column;gap:1.25rem;margin-bottom:2rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:700;font-size:18px;">Wie funktioniert TrefzRoute?</div>
+      <button onclick="closeInfo()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1rem;font-size:13px;line-height:1.7;">
+
+      <!-- Schritt 1 -->
+      <div style="background:var(--bg);border-radius:10px;padding:1rem;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem;">SCHRITT 1 — GEOCODING</div>
+        <div style="font-weight:600;margin-bottom:.3rem;">Adressen → GPS-Koordinaten</div>
+        <div style="color:var(--muted);">Jede Adresse wird über die <strong style="color:var(--text);">OpenRouteService API (ORS)</strong> in GPS-Koordinaten umgewandelt. Bei Fehler versucht das System automatisch einen Fallback auf <strong style="color:var(--text);">PLZ + Ort</strong> — das löst die meisten Fälle ohne manuellen Eingriff. Schlägt auch das fehl, erscheint ein Modal zur Korrektur. Dort können wahlweise eine korrigierte Adresse oder direkt <strong style="color:var(--text);">GPS-Koordinaten</strong> (Format: 48.7758, 9.1829) eingetragen werden. 4 API-Keys rotieren automatisch bei Rate Limit. Bereits geocodierte Adressen werden im Browser-Cache gespeichert.</div>
+      </div>
+
+      <!-- Schritt 2 -->
+      <div style="background:var(--bg);border-radius:10px;padding:1rem;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem;">SCHRITT 2 — GEOGRAFISCHES CLUSTERING</div>
+        <div style="font-weight:600;margin-bottom:.3rem;">Adressen in geografische Gruppen aufteilen</div>
+        <div style="color:var(--muted);">Der <strong style="color:var(--text);">K-Means Algorithmus</strong> teilt alle Adressen in geografisch sinnvolle Gruppen auf (z.B. Freiburg, Stuttgart, Heilbronn). Zielgröße: max. 35 Stopps pro Gruppe. Der Algorithmus läuft 20× mit unterschiedlichen Startpunkten und wählt das beste Ergebnis. Danach folgen zwei Qualitätsschritte:<br><br>
+        <strong style="color:var(--text);">Kleine Cluster zusammenführen:</strong> Gruppen mit weniger als 5 Stopps werden mit der geografisch nächsten Gruppe vereint — bevor OR-Tools rechnet, damit alle Stopps vollständig optimiert werden.<br><br>
+        <strong style="color:var(--text);">Plausibilitätscheck:</strong> Jeder Stopp wird geprüft ob er wirklich zur richtigen Gruppe gehört. Liegt ein Stopp deutlich näher an einer anderen Gruppe (mehr als 2× näher), wird er automatisch verschoben. Das verhindert geografische Ausreißer wie z.B. Reutlingen in einer Pforzheim-Route.</div>
+      </div>
+
+      <!-- Schritt 3 -->
+      <div style="background:var(--bg);border-radius:10px;padding:1rem;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem;">SCHRITT 3 — ORS DISTANZMATRIX</div>
+        <div style="font-weight:600;margin-bottom:.3rem;">Echte Fahrzeiten zwischen allen Punkten</div>
+        <div style="color:var(--muted);">Für jede Gruppe wird über <strong style="color:var(--text);">ORS</strong> eine vollständige Distanz- und Zeitmatrix berechnet — echte Fahrzeiten auf echten Straßen, keine Luftlinien. Die Abladezeiten werden zur Zeitmatrix addiert: <strong style="color:var(--text);">15 Minuten</strong> beim ersten Besuch einer Adresse, <strong style="color:var(--text);">5 Minuten</strong> bei Folgebesuchen derselben Adresse. <strong style="color:var(--text);">4 Gruppen werden parallel verarbeitet</strong> — das halbiert die Laufzeit gegenüber sequenzieller Verarbeitung.</div>
+      </div>
+
+      <!-- Schritt 4 -->
+      <div style="background:var(--bg);border-radius:10px;padding:1rem;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem;">SCHRITT 4 — OR-TOOLS OPTIMIERUNG</div>
+        <div style="font-weight:600;margin-bottom:.3rem;">Optimale Reihenfolge innerhalb jeder Gruppe</div>
+        <div style="color:var(--muted);"><strong style="color:var(--text);">Google OR-Tools</strong> (professioneller VRP-Solver) berechnet die optimale Besuchsreihenfolge. Harte Zeitfenster: erste Zustellung <strong style="color:var(--text);">frühestens 07:30 Uhr</strong>, letzte Zustellung <strong style="color:var(--text);">spätestens 16:30 Uhr</strong>. Abfahrt frühestens <strong style="color:var(--text);">06:00 Uhr</strong>, so spät wie möglich — wird exakt auf die Minute rückwärts vom ersten Stopp berechnet. Rückkehr zum Depot ohne Zeitlimit. OR-Tools entscheidet selbst wie viele Routen nötig sind.</div>
+      </div>
+
+      <!-- Ergebnis -->
+      <div style="background:var(--bg);border-radius:10px;padding:1rem;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem;">ERGEBNIS</div>
+        <div style="font-weight:600;margin-bottom:.3rem;">Fertige Routen mit allen Zeitangaben</div>
+        <div style="color:var(--muted);">Jede Route enthält: genaue <strong style="color:var(--text);">Abfahrtszeit</strong> auf die Minute, <strong style="color:var(--text);">Ankunftszeit</strong> pro Stopp, <strong style="color:var(--text);">Rückkehrzeit</strong> am Depot, Fahrzeit und Kilometer pro Etappe (bei Folgebesuch: 0 min / 0 m), <strong style="color:var(--text);">Abladezeit</strong> separat ausgewiesen, Google Maps Link (bei &gt;23 Stopps automatisch aufgeteilt), Excel-Export pro Route und Gesamtübersicht mit allen Routen.</div>
+      </div>
+
+      <!-- Technik -->
+      <div style="background:var(--bg);border-radius:10px;padding:1rem;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem;">TECHNOLOGIE</div>
+        <div style="color:var(--muted);font-family:var(--mono);font-size:11px;line-height:2;">
+          Version &nbsp;&nbsp;&nbsp;&nbsp;→ &nbsp;v2.9.2 (31.03.2026)<br>
+          Frontend &nbsp;&nbsp;→ &nbsp;HTML/JavaScript · GitHub Pages (kostenlos)<br>
+          Backend &nbsp;&nbsp;→ &nbsp;Python · FastAPI · Google OR-Tools · Render.com (kostenlos)<br>
+          Geocoding &nbsp;→ &nbsp;OpenRouteService API · 4 Keys · 8.000 Anfragen/Tag<br>
+          Navigation → &nbsp;Google Maps Links (keine API-Kosten)<br>
+          Kosten &nbsp;&nbsp;&nbsp;&nbsp;→ &nbsp;0 €
+        </div>
+      </div>
+
+    </div>
+
+    <button class="btn btn-primary" onclick="closeInfo()">Schließen</button>
+  </div>
+</div>
+
+<div id="geo-error-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:flex-start;justify-content:center;padding-top:5vh;overflow-y:auto;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.75rem;width:580px;max-width:94vw;display:flex;flex-direction:column;gap:1.25rem;margin-bottom:2rem;">
+
+    <div>
+      <div style="font-weight:700;font-size:16px;">Adressen konnten nicht gefunden werden</div>
+      <div id="geo-error-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;"></div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Tipp: Du kannst auch direkt GPS-Koordinaten eintragen, z.B. <strong>48.7758, 9.1829</strong></div>
+    </div>
+
+    <!-- Vorschau: erste 5 -->
+    <div id="geo-error-preview" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:2;max-height:180px;overflow-y:auto;"></div>
+
+    <!-- Schritt 1: Download -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1rem;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:.5rem;">Schritt 1 — Excel herunterladen &amp; korrigieren</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:.75rem;line-height:1.6;">
+        Die Excel-Datei enthält alle nicht gefundenen Adressen mit Stopp-Nummer.<br>
+        Korrigiere die Adressen in Spalte B und speichere die Datei.
+      </div>
+      <button class="btn btn-sm" onclick="downloadFailedAsExcel()" style="width:100%;">⬇ Fehlgeschlagene Adressen als Excel herunterladen</button>
+    </div>
+
+    <!-- Schritt 2: Re-Upload -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:1rem;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:.5rem;">Schritt 2 — Korrigierte Excel hochladen</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:.75rem;">Nur Spalte B (Adresse) wird eingelesen — Stopp-Nummern werden automatisch zugeordnet.</div>
+      <div class="drop-zone" id="fix-drop" onclick="document.getElementById('fix-file').click()" style="padding:.6rem;min-height:48px;">
+        <input type="file" id="fix-file" accept=".xlsx,.xls,.csv,.txt" style="display:none">
+        <div id="fix-drop-label" style="font-size:12px;">Korrigierte Datei hochladen</div>
+      </div>
+      <div id="fix-preview" style="display:none;margin-top:.5rem;font-family:var(--mono);font-size:11px;color:var(--accent);"></div>
+    </div>
+
+    <div style="display:flex;gap:.5rem;">
+      <button class="btn btn-primary" onclick="retryWithCorrections()" style="flex:1;">✓ Routen berechnen</button>
+      <button class="btn btn-sm" onclick="skipFailedAndContinue()" style="flex-shrink:0;">Überspringen &amp; fortfahren</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+
+    <div>
+      <div class="sec-label">Einstellungen</div>
+      <div class="card" style="display:flex;flex-direction:column;gap:.875rem;">
+        <div>
+          <label>Depot / Startpunkt</label>
+          <input type="text" id="depot" value="Markgröninger Strasse 64, 71701 Schwieberdingen" placeholder="Adresse" style="font-size:12px;">
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);background:var(--bg);border-radius:6px;padding:8px 10px;line-height:1.8;">
+          Zustellung ab 07:30 Uhr &nbsp;·&nbsp; Zustellung bis 16:30 Uhr<br>
+          Abladezeit pro Stopp: 15 Min &nbsp;·&nbsp; Optimierung: km + Zeit
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-label">Adressen</div>
+
+      <!-- UNIFIED SMART UPLOAD -->
+      <div class="card" style="display:flex;flex-direction:column;gap:.75rem;">
+        <div>
+          <label>Einfügen — eine Adresse pro Zeile</label>
+          <textarea id="addr-text" placeholder="Musterstraße 1, 70173 Stuttgart&#10;Bahnhofstraße 5, 71634 Ludwigsburg&#10;..."></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">oder</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <!-- UNIVERSAL DROP ZONE -->
+        <div class="drop-zone" id="smart-drop" onclick="document.getElementById('smart-file').click()">
+          <input type="file" id="smart-file" accept=".csv,.txt,.xlsx,.xls" multiple style="display:none">
+          <div id="smart-drop-label">Datei hochladen</div>
+          <div style="font-size:10px;margin-top:4px;color:var(--muted)">CSV · TXT · Excel — mehrere Dateien möglich</div>
+        </div>
+        <!-- COLUMN PICKER (nur bei mehrspaltigen Dateien) -->
+        <div id="col-picker" style="display:none;flex-direction:column;gap:.5rem;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.05em;">SPALTEN AUSWÄHLEN</div>
+          <div id="col-list" style="display:flex;flex-direction:column;gap:.4rem;"></div>
+          <div>
+            <label>Vorschau</label>
+            <div id="col-preview" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8;min-height:48px;"></div>
+          </div>
+          <button class="btn btn-sm" style="width:100%;" onclick="applyColumns()">✓ Adressen übernehmen</button>
+        </div>
+      </div>
+
+      <div id="addr-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;margin-top:.25rem;">0 Adressen</div>
+    </div>
+
+    <div class="prog-wrap" id="prog-wrap">
+      <div class="card">
+        <div class="sec-label">Fortschritt</div>
+        <div id="prog-lbl" class="prog-lbl">Starte...</div>
+        <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="log-box" id="log-box" style="display:none!important;"></div>
+
+    <button class="btn btn-primary" id="run-btn" onclick="runOptimization()">▶ Routen berechnen</button>
+
+  </aside>
+
+  <main class="main" id="main">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-ico">🗺</div>
+      <div>Noch keine Routen berechnet</div>
+      <div style="font-size:11px;max-width:300px;line-height:1.8;margin-top:.25rem;">
+        1. Adressen einfügen oder Excel hochladen<br>
+        2. <strong style="color:var(--text)">Routen berechnen</strong> klicken
+      </div>
+    </div>    <div id="results" style="display:none;"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SETTINGS MODAL ───────────────────────────────────────────────────────────
+function openInfo() {
+  document.getElementById('info-overlay').style.display = 'flex';
+}
+function closeInfo() {
+  document.getElementById('info-overlay').style.display = 'none';
+}
+document.getElementById('info-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeInfo();
+});
+function openSettings() {
+  try { updateCacheCount(); } catch(e) {}
+  document.getElementById('backend-url-input').value = getBackendUrl();
+  document.getElementById('coord-overrides').value =
+    localStorage.getItem('trefzroute_coord_overrides') || '';
+  document.getElementById('settings-overlay').style.display = 'flex';
+}
+function saveSettings() {
+  const url = document.getElementById('backend-url-input').value.trim();
+  if (url) localStorage.setItem('trefzroute_backend_url', url.replace(/\/$/, ''));
+  else localStorage.removeItem('trefzroute_backend_url');
+  const overrides = document.getElementById('coord-overrides').value.trim();
+  localStorage.setItem('trefzroute_coord_overrides', overrides);
+  // Überschreibungen sofort in den Cache laden
+  loadCoordOverrides();
+  closeSettings();
+  checkBackend();
+}
+
+function loadCoordOverrides() {
+  const raw = localStorage.getItem('trefzroute_coord_overrides') || '';
+  raw.split('\n').forEach(line => {
+    const eq = line.indexOf('=');
+    if (eq < 0) return;
+    const addr   = line.slice(0, eq).trim();
+    const coords = parseCoordinates(line.slice(eq + 1).trim());
+    if (addr && coords) {
+      geoCache[addr] = coords;
+    }
+  });
+  saveCache(geoCache);
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').style.display = 'none';
+}
+document.getElementById('settings-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let addresses = [];
+let routeResult = [];
+let matrixCache = {};
+
+// ── GEO CACHE (localStorage) ─────────────────────────────────────────────────
+const CACHE_KEY = 'routeos_geocache';
+function loadCache() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
+}
+function saveCache(cache) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch(e) { console.warn('Cache speichern fehlgeschlagen:', e); }
+}
+let geoCache = loadCache();
+function updateCacheCount() {
+  const n = Object.keys(geoCache).length;
+  const el = document.getElementById('cache-count');
+  if (el) el.textContent = n + ' Adressen im Cache';
+}
+function clearGeoCache() {
+  geoCache = {};
+  localStorage.removeItem(CACHE_KEY);
+  updateCacheCount();
+  toast('Cache geleert.', 'ok');
+}
+
+// ── LOG ──────────────────────────────────────────────────────────────────────
+function log(msg, type='inf') {
+  const box = document.getElementById('log-box');
+  box.classList.add('on');
+  const line = document.createElement('div');
+  line.className = type;
+  line.textContent = '› ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+function clearLog() {
+  const box = document.getElementById('log-box');
+  box.innerHTML = '';
+  box.classList.remove('on');
+}
+
+// ── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, type='ok', ms=4500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.display='none', ms);
+}
+
+// ── PROGRESS ─────────────────────────────────────────────────────────────────
+function prog(pct, lbl) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-lbl').textContent = lbl;
+}
+function showProg(v) { document.getElementById('prog-wrap').classList.toggle('on', v); }
+
+// ── API STATUS ────────────────────────────────────────────────────────────────
+function setStatus(state) {
+  const dot = document.getElementById('dot');
+  const lbl = document.getElementById('api-lbl');
+  if (state === 'ok')  { dot.className='dot ok';  lbl.textContent='ORS verbunden'; }
+  if (state === 'err') { dot.className='dot err'; lbl.textContent='API Fehler'; }
+  if (state === '-')   { dot.className='dot';     lbl.textContent='API bereit'; }
+}
+
+// ── ADDRESS PARSING ───────────────────────────────────────────────────────────
+document.getElementById('addr-text').addEventListener('input', parseAddresses);
+
+// ── SMART UNIVERSAL FILE UPLOADER ─────────────────────────────────────────────
+let smartParsedRows = [];    // all rows from file
+let smartSelectedCols = [];  // selected column indices
+let smartHeaders = [];
+
+// Fix encoding: latin-1 / windows-1252 → UTF-8
+function fixEncoding(buffer) {
+  // Try UTF-8 first
+  try {
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+    return text;
+  } catch(e) {}
+  // Fallback: windows-1252
+  return new TextDecoder('windows-1252').decode(buffer);
+}
+
+// Normalize special chars: smart quotes, non-breaking spaces, BOM etc.
+function normalizeText(text) {
+  return text
+    .replace(/^\uFEFF/, '')       // UTF-8 BOM entfernen
+    .replace(/\r\n/g, '\n').replace(/\r/g, '\n')  // line endings
+    .replace(/\u00a0/g, ' ')   // non-breaking space
+    .replace(/[\u2018\u2019]/g, "'")  // smart single quotes
+    .replace(/[\u201c\u201d]/g, '"')  // smart double quotes
+    .replace(/[\u200b\u200c\u200d\u200e\u200f]/g, '')  // zero-width chars
+    .trim();
+}
+
+// Detect delimiter
+function detectDelimiter(text) {
+  const line = text.split('\n')[0];
+  const counts = { ';': 0, ',': 0, '\t': 0, '|': 0 };
+  for (const c of line) if (counts[c] !== undefined) counts[c]++;
+  return Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+}
+
+// Parse CSV/TXT into rows
+function parseCsvText(text) {
+  const delim = detectDelimiter(text);
+  const lines = text.split('\n').filter(l => l.trim().length > 0);
+  return { rows: lines.map(l => l.split(delim).map(c => c.trim().replace(/^["']|["']$/g, ''))), delim };
+}
+
+// Check if first row is a header
+function isHeaderRow(row) {
+  return row.some(c => isNaN(c) && c.length > 0 && !/^\d{4,5}$/.test(c));
+}
+
+// Auto-detect address columns by name
+function autoDetectCols(headers) {
+  const kw = ['straß', 'strasse', 'str.', 'str ', 'adresse', 'address', 'plz', 'ort', 'stadt', 'city', 'zip', 'postleit'];
+  return headers.map((h, i) => kw.some(k => h.toLowerCase().includes(k)) ? i : -1).filter(i => i >= 0);
+}
+
+// Build address preview
+function buildPreview(rows, cols, count=3) {
+  return rows.slice(0, count)
+    .map(row => joinAddressParts(cols.map(i => (row[i]||'').trim()).filter(Boolean)))
+    .filter(Boolean);
+}
+
+// Smart join: Straße bekommt Komma, PLZ wird ohne Komma mit Ort verbunden
+function joinAddressParts(parts) {
+  if (!parts.length) return '';
+  if (parts.length === 1) return parts[0];
+  let result = '';
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (i === 0) { result = part; continue; }
+    const prevIsPlz = /^\d{4,5}$/.test(parts[i-1]);
+    const currIsPlz = /^\d{4,5}$/.test(part);
+    if (prevIsPlz) {
+      // PLZ direkt gefolgt von Ort: Leerzeichen
+      result += ' ' + part;
+    } else if (currIsPlz) {
+      // Vor PLZ: immer Komma (trennt Straße von PLZ)
+      result += ', ' + part;
+    } else {
+      result += ', ' + part;
+    }
+  }
+  return result;
+}
+
+// Show column picker UI
+let smartAppendMode = false;
+function showColPicker(headers, rows, preselect, append = false) {
+  smartAppendMode = append;
+  smartHeaders = headers;
+  smartParsedRows = rows;
+  smartSelectedCols = [...(preselect || [])];
+
+  const list = document.getElementById('col-list');
+  list.innerHTML = headers.map((h, i) => {
+    const sample = rows.slice(0,2).map(r => r[i]).filter(Boolean).join(', ');
+    const checked = (preselect || []).includes(i);
+    return `<label class="col-check ${checked?'checked':''}" id="cck-${i}" onclick="toggleSmartCol(${i})">
+      <input type="checkbox" ${checked?'checked':''} onchange="event.stopPropagation()">
+      <div>
+        <div style="font-weight:500;color:var(--text)">${h}</div>
+        ${sample?`<div style="font-size:10px;margin-top:1px;color:var(--muted)">${sample}</div>`:''}
+      </div>
+    </label>`;
+  }).join('');
+
+  updateColPreview();
+  document.getElementById('col-picker').style.display = 'flex';
+}
+
+function toggleSmartCol(idx) {
+  const cb = document.querySelector(`#cck-${idx} input`);
+  const lbl = document.getElementById(`cck-${idx}`);
+  cb.checked = !cb.checked;
+  lbl.classList.toggle('checked', cb.checked);
+  if (cb.checked && !smartSelectedCols.includes(idx)) smartSelectedCols.push(idx);
+  else smartSelectedCols = smartSelectedCols.filter(i => i !== idx);
+  smartSelectedCols.sort((a,b)=>a-b);
+  updateColPreview();
+}
+
+function updateColPreview() {
+  const prev = document.getElementById('col-preview');
+  if (!smartSelectedCols.length) { prev.textContent = 'Spalten auswählen...'; return; }
+  const lines = buildPreview(smartParsedRows, smartSelectedCols);
+  prev.innerHTML = lines.map(l => `<div>${l}</div>`).join('') || '<span style="color:var(--danger)">Keine Daten</span>';
+}
+
+function applyColumns() {
+  if (!smartSelectedCols.length) return toast('Bitte mindestens eine Spalte auswählen.', 'err');
+  const rawAddrs = smartParsedRows
+    .map(row => joinAddressParts(smartSelectedCols.map(i => (row[i]||'').trim()).filter(Boolean)));
+  const addrs = rawAddrs.filter(a => a.length > 3);
+  const skipped = rawAddrs.filter(a => a.length > 0 && a.length <= 3);
+  const existing = document.getElementById('addr-text').value.trim();
+  document.getElementById('addr-text').value = smartAppendMode && existing ? existing + '\n' + addrs.join('\n') : addrs.join('\n');
+  document.getElementById('col-picker').style.display = 'none';
+  parseAddresses();
+  if (skipped.length > 0) {
+    toast(`${addrs.length} Adressen übernommen — ${skipped.length} übersprungen`, 'err', 6000);
+  } else {
+    toast(`${addrs.length} Adressen übernommen!`, 'ok');
+  }
+}
+
+// ── GRUNDDATEI (Versandliste) ─────────────────────────────────────────────────
+let grunddatenMap = {}; // normAdresse → {schulname, tel, email}
+
+function isGrunddatei(headers) {
+  const h = headers.map(x => String(x).toLowerCase());
+  return h.some(x => x.includes('schulname')) &&
+         h.some(x => x.includes('straße') || x.includes('strasse') || x.includes('postfach')) &&
+         h.some(x => x.includes('plz')) &&
+         h.some(x => x.includes('ort'));
+}
+
+function normAddr(s) {
+  return String(s).toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+function isFilteredRow(row, headers) {
+  // TEST-Zeilen oder Trefz-Depot herausfiltern
+  const schulname = String(row[headers.findIndex(h => String(h).toLowerCase().includes('schulname'))] || '').toLowerCase();
+  return schulname === 'test' || schulname === '2026' || schulname.includes('trefz') || schulname.includes('fa trefz');
+}
+
+function processGrunddatei(headers, rows) {
+  grunddatenMap = {};
+  const hi = {
+    schulname:  headers.findIndex(h => String(h).toLowerCase().includes('schulname')),
+    schulname2: headers.findIndex(h => /schulname2/i.test(String(h))),
+    schulname3: headers.findIndex(h => /schulname3/i.test(String(h))),
+    strasse:    headers.findIndex(h => /straße|strasse|postfach/i.test(String(h))),
+    plz:        headers.findIndex(h => /^plz$/i.test(String(h).trim())),
+    ort:        headers.findIndex(h => /^ort$/i.test(String(h).trim())),
+    tel:        headers.findIndex(h => /telefon/i.test(String(h))),
+    email:      headers.findIndex(h => /email/i.test(String(h))),
+  };
+
+  const addrs = [];
+  rows.forEach(row => {
+    if (isFilteredRow(row, headers)) return;
+
+    const strasse = String(row[hi.strasse] || '').trim();
+    const plzRaw  = row[hi.plz];
+    const plz     = String(typeof plzRaw === 'number' ? Math.round(plzRaw) : plzRaw).trim();
+    const ort     = String(row[hi.ort] || '').trim();
+
+    if (!strasse || !plz || !ort) return;
+
+    const addr = `${strasse}, ${plz} ${ort}`;
+
+    const n1 = String(row[hi.schulname]  || '').trim();
+    const n2 = hi.schulname2 >= 0 ? String(row[hi.schulname2] || '').trim() : '';
+    const n3 = hi.schulname3 >= 0 ? String(row[hi.schulname3] || '').trim() : '';
+    const schulname = [n1, n2, n3].filter(Boolean).join(' ');
+
+    const tel   = hi.tel   >= 0 ? String(row[hi.tel]   || '').trim() : '';
+    const email = hi.email >= 0 ? String(row[hi.email] || '').trim() : '';
+
+    grunddatenMap[normAddr(addr)] = { schulname, tel, email, addr };
+    addrs.push(addr);
+  });
+
+  return addrs;
+}
+
+function lookupGrunddaten(addr) {
+  return grunddatenMap[normAddr(addr)] || null;
+}
+
+// Verarbeitet mehrere Dateien nacheinander
+async function handleSmartFiles(files) {
+  const fileList = Array.from(files);
+  if (!fileList.length) return;
+  for (const file of fileList) {
+    await handleSmartFile(file, fileList.length > 1);
+  }
+  if (fileList.length > 1) {
+    const total = document.getElementById('addr-count').textContent;
+    toast(`${fileList.length} Dateien geladen — ${total}`, 'ok', 5000);
+  }
+}
+
+// Main file handler — append=true fügt Adressen hinzu statt zu ersetzen
+async function handleSmartFile(file, append = false) {
+  if (!file) return;
+  const label = document.getElementById('smart-drop-label');
+  label.textContent = append ? `${label.textContent.replace(' wird geladen...','')}, ${file.name} wird geladen...` : `${file.name} wird geladen...`;
+
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'xlsx' || ext === 'xls') {
+    // Excel via SheetJS
+    if (typeof XLSX === 'undefined') { toast('SheetJS wird geladen, bitte erneut versuchen.', 'err'); return; }
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (!data.length) return toast('Excel-Datei ist leer.', 'err');
+
+    const hasHeader = isHeaderRow(data[0]);
+    const headers = hasHeader ? data[0].map((h,i) => String(h||`Spalte ${i+1}`)) : data[0].map((_,i) => `Spalte ${i+1}`);
+    const rows = hasHeader ? data.slice(1) : data;
+
+    // Grunddatei-Erkennung
+    if (isGrunddatei(headers)) {
+      const addrs = processGrunddatei(headers, rows);
+      const existing = document.getElementById('addr-text').value.trim();
+      const combined = append && existing ? existing + '\n' + addrs.join('\n') : addrs.join('\n');
+      document.getElementById('addr-text').value = combined;
+      parseAddresses();
+      label.textContent = `✓ ${file.name}`;
+      toast(`Grunddatei geladen: ${addrs.length} Schulen erkannt.`, 'ok', 5000);
+      return;
+    }
+
+    const preselect = autoDetectCols(headers);
+
+    if (headers.length === 1) {
+      // Single column: direct use
+      const rawAddrs = rows.map(r => String(r[0]||'').trim());
+      const addrs = rawAddrs.filter(a => a.length > 3);
+      const skipped = rawAddrs.filter(a => a.length > 0 && a.length <= 3);
+      const existing = document.getElementById('addr-text').value.trim();
+      document.getElementById('addr-text').value = append && existing ? existing + '\n' + addrs.join('\n') : addrs.join('\n');
+      parseAddresses();
+      if (skipped.length > 0) {
+        toast(`${addrs.length} Adressen geladen — ${skipped.length} übersprungen`, 'err', 6000);
+      } else if (!append) {
+        toast(`${addrs.length} Adressen aus Excel geladen.`, 'ok');
+      }
+    } else {
+      showColPicker(headers, rows.map(r => r.map(c => String(c||''))), preselect.length ? preselect : [0], append);
+    }
+
+  } else {
+    // CSV / TXT
+    const buf = await file.arrayBuffer();
+    const text = normalizeText(fixEncoding(buf));
+    const { rows } = parseCsvText(text);
+
+    if (!rows.length) return toast('Datei ist leer.', 'err');
+
+    const hasHeader = isHeaderRow(rows[0]);
+    const headers = hasHeader ? rows[0] : rows[0].map((_,i) => `Spalte ${i+1}`);
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
+    if (rows[0].length === 1) {
+      const rawAddrs = dataRows.map(r => r[0].trim());
+      const addrs = rawAddrs.filter(a => a.length > 3);
+      const skipped = rawAddrs.filter(a => a.length > 0 && a.length <= 3);
+      const existing = document.getElementById('addr-text').value.trim();
+      document.getElementById('addr-text').value = append && existing ? existing + '\n' + addrs.join('\n') : addrs.join('\n');
+      document.getElementById('col-picker').style.display = 'none';
+      parseAddresses();
+      if (skipped.length > 0) {
+        toast(`${addrs.length} Adressen geladen — ${skipped.length} übersprungen`, 'err', 6000);
+      } else if (!append) {
+        toast(`${addrs.length} Adressen geladen.`, 'ok');
+      }
+    } else {
+      const preselect = autoDetectCols(headers);
+      showColPicker(headers, dataRows, preselect.length ? preselect : [0], append);
+    }
+  }
+  if (!append) label.textContent = `✓ ${file.name}`;
+}
+
+// Wire up the universal input
+document.getElementById('smart-file').addEventListener('change', function(e) {
+  if (this.files && this.files.length) handleSmartFiles(this.files);
+});
+const sdz = document.getElementById('smart-drop');
+sdz.addEventListener('dragover',  e => { e.preventDefault(); sdz.classList.add('drag'); });
+sdz.addEventListener('dragleave', () => sdz.classList.remove('drag'));
+sdz.addEventListener('drop', e => {
+  e.preventDefault(); sdz.classList.remove('drag');
+  if (e.dataTransfer.files.length) handleSmartFiles(e.dataTransfer.files);
+});
+
+// ── TEXT NORMALIZATION ON PASTE / INPUT ───────────────────────────────────────
+function normalizeAddressText(text) {
+  return text
+    .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    .replace(/\u00a0/g, ' ')                      // non-breaking space
+    .replace(/[\u2018\u2019]/g, "'")              // smart quotes
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\t/g, ' ')                          // tabs to spaces
+    .replace(/[ ]{2,}/g, ' ')                     // multiple spaces
+    .split('\n')
+    .map(l => l.trim())
+    .join('\n');
+}
+
+const addrTextEl = document.getElementById('addr-text');
+
+addrTextEl.addEventListener('paste', function(e) {
+  e.preventDefault();
+  const pasted = (e.clipboardData || window.clipboardData).getData('text');
+  const normalized = normalizeAddressText(pasted);
+
+  // Check if pasted text has delimiters (multi-column)
+  const firstLine = normalized.split('\n')[0];
+  const hasDelim = (firstLine.match(/;/g)||[]).length > 0 || (firstLine.match(/\t/g)||[]).length > 0;
+
+  if (hasDelim) {
+    // Parse as CSV and show column picker
+    const delim = (firstLine.match(/;/g)||[]).length >= (firstLine.match(/\t/g)||[]).length ? ';' : '\t';
+    const rows = normalized.split('\n')
+      .filter(l => l.trim().length > 0)
+      .map(l => l.split(delim).map(c => c.trim().replace(/^["']|["']$/g, '')));
+
+    if (rows.length > 0 && rows[0].length > 1) {
+      const hasHeader = isHeaderRow(rows[0]);
+      const headers = hasHeader ? rows[0] : rows[0].map((_,i) => `Spalte ${i+1}`);
+      const dataRows = hasHeader ? rows.slice(1) : rows;
+      const preselect = autoDetectCols(headers);
+      smartParsedRows = dataRows;
+      showColPicker(headers, dataRows, preselect.length ? preselect : [0]);
+      toast('Mehrere Spalten erkannt — bitte Spalten auswählen.', 'ok', 4000);
+      return;
+    }
+  }
+
+  // Single column: insert normalized text directly
+  const start = this.selectionStart, end = this.selectionEnd;
+  const current = this.value;
+  this.value = current.slice(0, start) + normalized + current.slice(end);
+  this.selectionStart = this.selectionEnd = start + normalized.length;
+  parseAddresses();
+});
+
+addrTextEl.addEventListener('input', parseAddresses);
+
+function parseAddresses() {
+  const raw = document.getElementById('addr-text').value.replace(/^\uFEFF/, '');
+  const allLines = raw.split('\n').map(l => l.trim().replace(/[\u200b\u200c\u200d\ufeff]/g, '')).filter(l => l.length > 0);
+  const skipped = allLines.filter(l => l.length <= 3);
+  addresses = allLines.filter(l => l.length > 3);
+  document.getElementById('addr-count').textContent = addresses.length + ' Adressen';
+
+  // Sofort warnen wenn Zeilen verloren gegangen sind
+  if (skipped.length > 0) {
+    showImportWarning(skipped, allLines.length);
+  } else {
+    hideImportWarning();
+  }
+}
+
+function showImportWarning(skippedLines, totalLines) {
+  let el = document.getElementById('import-warning');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'import-warning';
+    el.style.cssText = 'background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-top:8px;font-size:12px;font-family:var(--mono);';
+    const textarea = document.getElementById('addr-text');
+    textarea.parentNode.insertBefore(el, textarea.nextSibling);
+  }
+  const lines = skippedLines.map(l => `<div style="color:#856404;margin-top:3px;">⚠ "${l}"</div>`).join('');
+  el.innerHTML = `<div style="font-weight:600;color:#856404;">
+    ⚠ ${skippedLines.length} von ${totalLines} Zeile(n) wurden nicht erkannt (zu kurz oder leer):
+  </div>
+  ${lines}
+  <div style="margin-top:8px;color:#856404;">
+    Diese Zeilen werden ignoriert. Bitte korrigiere sie direkt im Textfeld oben — 
+    eine gültige Adresse braucht mindestens 4 Zeichen (z.B. eine PLZ).
+  </div>`;
+}
+
+function hideImportWarning() {
+  const el = document.getElementById('import-warning');
+  if (el) el.remove();
+}
+
+// ── GEOCODING ERROR REVIEW ────────────────────────────────────────────────────
+let failedGeoAddresses = [];
+let pendingGeoPoints   = [];
+let pendingContinueFn  = null;
+let correctedAddresses = {}; // idx -> corrected address
+
+function showGeoErrorModal(failed, geoPoints, continueFn) {
+  failedGeoAddresses = failed;
+  pendingGeoPoints   = geoPoints;
+  pendingContinueFn  = continueFn;
+  correctedAddresses = {};
+
+  // Count + preview
+  document.getElementById('geo-error-count').textContent =
+    `${failed.length} Adresse${failed.length !== 1 ? 'n' : ''} nicht gefunden`;
+
+  const preview = document.getElementById('geo-error-preview');
+  preview.innerHTML = failed.slice(0, 8).map(f =>
+    `<div>Stopp ${f.idx + 1} &nbsp;—&nbsp; <span style="color:var(--text)">${f.original}</span></div>`
+  ).join('') + (failed.length > 8 ? `<div style="color:var(--muted)">... und ${failed.length - 8} weitere</div>` : '');
+
+  // Reset upload area
+  document.getElementById('fix-drop-label').textContent = 'Korrigierte Datei hochladen';
+  document.getElementById('fix-preview').style.display = 'none';
+  document.getElementById('fix-file').value = '';
+
+  document.getElementById('geo-error-overlay').style.display = 'flex';
+}
+
+function downloadFailedAsExcel() {
+  if (typeof XLSX === 'undefined') { toast('SheetJS wird noch geladen.', 'err'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const rows = [['Stopp', 'Adresse (korrigieren)', 'Original']];
+  failedGeoAddresses.forEach(f => {
+    rows.push([f.idx + 1, f.original, f.original]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [{ wch: 8 }, { wch: 55 }, { wch: 55 }];
+
+  // Header style hint (bold row 1)
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const cell = ws[XLSX.utils.encode_cell({ r: 0, c: C })];
+    if (cell) cell.s = { font: { bold: true } };
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Fehlgeschlagene Adressen');
+  XLSX.writeFile(wb, 'TrefzRoute_Korrekturen.xlsx');
+}
+
+// Handle corrected file upload
+document.getElementById('fix-file').addEventListener('change', async function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  document.getElementById('fix-drop-label').textContent = file.name;
+  await loadCorrectedFile(file);
+});
+
+const fixDrop = document.getElementById('fix-drop');
+fixDrop.addEventListener('dragover',  e => { e.preventDefault(); fixDrop.classList.add('drag'); });
+fixDrop.addEventListener('dragleave', () => fixDrop.classList.remove('drag'));
+fixDrop.addEventListener('drop', async e => {
+  e.preventDefault(); fixDrop.classList.remove('drag');
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  document.getElementById('fix-drop-label').textContent = file.name;
+  await loadCorrectedFile(file);
+});
+
+async function loadCorrectedFile(file) {
+  correctedAddresses = {};
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  try {
+    if (ext === 'xlsx' || ext === 'xls') {
+      const buf = await file.arrayBuffer();
+      const wb  = XLSX.read(buf, { type: 'array' });
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      // Skip header row, read col 0 (stopp nr) and col 1 (address)
+      const start = isNaN(data[0]?.[0]) ? 1 : 0;
+      data.slice(start).forEach(row => {
+        const stopNr = parseInt(row[0]);
+        const addr   = String(row[1] || '').trim();
+        if (!isNaN(stopNr) && addr.length > 3) {
+          correctedAddresses[stopNr - 1] = addr; // convert back to 0-based idx
+        }
+      });
+    } else {
+      // CSV/TXT
+      const buf  = await file.arrayBuffer();
+      const text = normalizeText(fixEncoding(buf));
+      const rows = text.split('\n').filter(l => l.trim());
+      const delim = detectDelimiter(rows[0] || '');
+      const start = isNaN(rows[0]?.split(delim)[0]) ? 1 : 0;
+      rows.slice(start).forEach(line => {
+        const parts  = line.split(delim).map(c => c.trim().replace(/^["']|["']$/g, ''));
+        const stopNr = parseInt(parts[0]);
+        const addr   = parts[1] || '';
+        if (!isNaN(stopNr) && addr.length > 3) {
+          correctedAddresses[stopNr - 1] = addr;
+        }
+      });
+    }
+
+    const count = Object.keys(correctedAddresses).length;
+    const prev  = document.getElementById('fix-preview');
+    prev.style.display = 'block';
+    prev.textContent = `✓ ${count} korrigierte Adresse${count !== 1 ? 'n' : ''} geladen`;
+
+  } catch(e) {
+    toast('Fehler beim Lesen der Datei: ' + e.message, 'err');
+  }
+}
+
+async function retryWithCorrections() {
+  const toRecode = [];
+
+  failedGeoAddresses.forEach(f => {
+    const corrected = correctedAddresses[f.idx];
+    if (corrected && corrected !== f.original) {
+      addresses[f.idx] = corrected;
+      toRecode.push({ idx: f.idx, addr: corrected });
+    }
+  });
+
+  document.getElementById('addr-text').value = addresses.join('\n');
+  parseAddresses();
+  document.getElementById('geo-error-overlay').style.display = 'none';
+  document.getElementById('run-btn').disabled = true;
+  showProg(true);
+  prog(0, 'Geocoding Korrekturen...');
+
+  const keys = getKeys();
+  for (const c of toRecode) {
+    // Koordinaten direkt? Kein API-Call nötig
+    const coords = parseCoordinates(c.addr);
+    if (coords) {
+      geoCache[c.addr] = coords;
+      saveCache(geoCache);
+      pendingGeoPoints[c.idx + 1] = coords;
+    } else {
+      delete geoCache[c.addr];
+      try {
+        pendingGeoPoints[c.idx + 1] = await geocodeORS(c.addr, keys);
+      } catch(e) {
+        pendingGeoPoints[c.idx + 1] = pendingGeoPoints[0];
+      }
+    }
+  }
+
+  await continueAfterGeocoding(pendingGeoPoints, keys,
+    document.getElementById('depot').value.trim(), 15, 9 * 3600);
+
+  document.getElementById('run-btn').disabled = false;
+  setTimeout(() => showProg(false), 2000);
+}
+
+function skipFailedAndContinue() {
+  const failedIdx = new Set(failedGeoAddresses.map(f => f.idx));
+  addresses = addresses.filter((_, i) => !failedIdx.has(i));
+  document.getElementById('addr-text').value = addresses.join('\n');
+  parseAddresses();
+  const newGeoPoints = pendingGeoPoints.filter((_, i) => i === 0 || !failedIdx.has(i - 1));
+  document.getElementById('geo-error-overlay').style.display = 'none';
+  if (pendingContinueFn) pendingContinueFn(newGeoPoints);
+}
+
+
+// ── KEY ROTATION ──────────────────────────────────────────────────────────────
+function getKeys() {
+  return Array.from(document.querySelectorAll('.ors-key-input'))
+    .map(el => el.value.trim())
+    .filter(k => k.length > 10);
+}
+let keyIndex = 0;
+function currentKey() {
+  const keys = getKeys();
+  if (!keys.length) throw new Error('Kein API Key eingetragen.');
+  return keys[keyIndex % keys.length];
+}
+function rotateKey(keys) {
+  keyIndex++;
+  if (keyIndex >= keys.length) throw new Error('Alle API Keys haben das Rate Limit erreicht.');
+  const next = keys[keyIndex % keys.length];
+  log(`Rate Limit erreicht — wechsle zu Key ${(keyIndex % keys.length) + 1}/${keys.length}`, 'inf');
+  toast(`Key ${(keyIndex % keys.length) + 1} wird verwendet.`, 'ok', 3000);
+  return next;
+}
+
+// ── ORS GEOCODING ─────────────────────────────────────────────────────────────
+// Prüft ob ein String Koordinaten sind (z.B. "48.7758, 9.1829")
+function parseCoordinates(text) {
+  const m = text.trim().match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+// PLZ → ungefähre Koordinaten (Mittelpunkt) für Deutschland
+// Erste 2-3 Ziffern → grobe Region
+const PLZ_REGIONS = {
+  '0': {lat:51.3, lng:12.4}, // Leipzig/Dresden
+  '1': {lat:52.5, lng:13.4}, // Berlin/Brandenburg
+  '2': {lat:53.6, lng:10.0}, // Hamburg/Norddeutschland
+  '3': {lat:52.4, lng: 9.7}, // Hannover/Niedersachsen
+  '4': {lat:51.5, lng: 7.5}, // Ruhrgebiet/NRW
+  '5': {lat:50.9, lng: 7.0}, // Köln/Bonn/Rheinland
+  '6': {lat:50.1, lng: 8.7}, // Frankfurt/Rhein-Main/Hessen
+  '7': {lat:48.7, lng: 9.1}, // Stuttgart/Baden-Württemberg
+  '8': {lat:48.1, lng:11.6}, // München/Bayern Süd
+  '9': {lat:49.4, lng:11.1}, // Nürnberg/Bayern Nord
+};
+
+// Prüft ob Koordinaten plausibel zur PLZ passen
+// Erlaubte Abweichung: ~280km (2.5 Grad) — großzügig um falsche Verwerfungen zu vermeiden
+function plzCoordCheck(address, result) {
+  const plzMatch = address.match(/\b(\d{5})\b/);
+  if (!plzMatch) return true;
+  const region = PLZ_REGIONS[plzMatch[1][0]];
+  if (!region) return true;
+  const dist = Math.hypot(result.lat - region.lat, result.lng - region.lng);
+  return dist < 2.5; // ~280km Toleranz
+}
+
+// Extrahiert PLZ + Ort aus einer Adresse als Fallback
+function extractPlzOrt(address) {
+  const m = address.match(/\b(\d{5})\s+([A-ZÄÖÜ][^\d,]+?)(?:\s*,|\s*$)/);
+  if (m) return `${m[1]} ${m[2].trim()}`;
+  const plz = address.match(/\b(\d{5})\b/);
+  if (plz) return plz[1];
+  return null;
+}
+
+async function geocodeORS(address, keys) {
+  if (geoCache[address]) return geoCache[address];
+
+  const coords = parseCoordinates(address);
+  if (coords) {
+    geoCache[address] = coords;
+    saveCache(geoCache);
+    return coords;
+  }
+
+  const maxAttempts = keys.length * 2;
+
+  async function tryGeocode(query) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const key = keys[keyIndex % keys.length];
+      try {
+        const url = `https://api.openrouteservice.org/geocode/search?api_key=${key}&text=${encodeURIComponent(query)}&boundary.country=DE&size=1`;
+        const res = await fetch(url);
+        if (res.status === 429 || res.status === 403) {
+          keyIndex++;
+          await sleep(300);
+          continue;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.features?.length) return null;
+        const [lng, lat] = data.features[0].geometry.coordinates;
+        return { lat, lng };
+      } catch(e) {
+        if (attempt === maxAttempts - 1) return null;
+        keyIndex++;
+        await sleep(200);
+      }
+    }
+    return null;
+  }
+
+  // Versuch 1: vollständige Adresse
+  let result = await tryGeocode(address);
+
+  // Plausibilitätscheck: passen die Koordinaten zur PLZ?
+  if (result && !plzCoordCheck(address, result)) {
+    log(`PLZ-Prüfung fehlgeschlagen für: ${address} → Koordinaten (${result.lat.toFixed(3)}, ${result.lng.toFixed(3)}) passen nicht zur PLZ`, 'err');
+    result = null; // verwerfen, Fallback versuchen
+  }
+
+  if (result) {
+    geoCache[address] = result;
+    saveCache(geoCache);
+    return result;
+  }
+
+  // Versuch 2: Fallback auf PLZ + Ort
+  const plzOrt = extractPlzOrt(address);
+  if (plzOrt && plzOrt !== address) {
+    result = await tryGeocode(plzOrt);
+    if (result && plzCoordCheck(address, result)) {
+      log(`Fallback PLZ/Ort für: ${address} → ${plzOrt}`, 'inf');
+      geoCache[address] = result;
+      saveCache(geoCache);
+      return result;
+    }
+  }
+
+  throw new Error(`Nicht gefunden: ${address}`);
+}
+
+// ── ORS DISTANCE MATRIX (max 50×50 per request) ──────────────────────────────
+async function orsMatrix(locations, keys) {
+  const body = { locations, metrics: ['distance', 'duration'], units: 'm' };
+  let attempts = 0;
+  while (attempts <= keys.length) {
+    const key = keys[keyIndex % keys.length];
+    const res = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+      method: 'POST',
+      headers: { 'Authorization': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (res.status === 429 || res.status === 403) { rotateKey(keys); attempts++; continue; }
+    if (!res.ok) { const err = await res.text(); throw new Error(`Matrix API: ${res.status} — ${err}`); }
+    const data = await res.json();
+    return { distances: data.distances, durations: data.durations };
+  }
+  throw new Error('Alle Keys erschöpft bei Matrix-Berechnung.');
+}
+
+// ── SEEDED PRNG (Mulberry32) ──────────────────────────────────────────────────
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ── K-MEANS++ BEST-OF-12 ─────────────────────────────────────────────────────
+function kmeansRun(points, k, iters, rng) {
+  if (k >= points.length) return points.map((_, i) => i % k);
+  let centers = [points[Math.floor(rng() * points.length)]];
+  while (centers.length < k) {
+    const dists = points.map(p => Math.min(...centers.map(c => (p.lat-c.lat)**2 + (p.lng-c.lng)**2)));
+    const sum = dists.reduce((a,b) => a+b, 0);
+    let r = rng() * sum, acc = 0;
+    for (let i = 0; i < dists.length; i++) { acc += dists[i]; if (acc >= r) { centers.push(points[i]); break; } }
+    if (centers.length < k) centers.push(points[Math.floor(rng()*points.length)]);
+  }
+  let assignments = new Array(points.length).fill(0);
+  for (let iter = 0; iter < iters; iter++) {
+    const prev = [...assignments];
+    assignments = points.map(p => { let best=0, bd=Infinity; centers.forEach((c,ci)=>{ const d=(p.lat-c.lat)**2+(p.lng-c.lng)**2; if(d<bd){bd=d;best=ci;} }); return best; });
+    centers = centers.map((c,ci) => { const pts=points.filter((_,i)=>assignments[i]===ci); if(!pts.length) return c; return {lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length, lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length}; });
+    if (assignments.every((a,i)=>a===prev[i])) break;
+  }
+  return assignments;
+}
+function kmeansScore(points, asgn, k) {
+  const centers = Array.from({length:k},(_,ci)=>{ const pts=points.filter((_,i)=>asgn[i]===ci); if(!pts.length) return {lat:0,lng:0}; return {lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length, lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length}; });
+  return points.reduce((sum,p,i)=>{ const c=centers[asgn[i]]; return sum+(p.lat-c.lat)**2+(p.lng-c.lng)**2; },0);
+}
+function kmeans(points, k) {
+  let best=null, bestScore=Infinity;
+  for (let run=0; run<20; run++) {
+    const rng = mulberry32(42 + run*1337);
+    const asgn = kmeansRun(points, k, 150, rng);
+    const score = kmeansScore(points, asgn, k);
+    if (score < bestScore) { bestScore=score; best=asgn; }
+  }
+  return best;
+}
+
+// ── ROUTE COST ───────────────────────────────────────────────────────────────
+function routeCostIdx(route, dm, depot) {
+  let cost=0; const full=[depot,...route,depot];
+  for (let i=0; i<full.length-1; i++) cost += dm[full[i]]?.[full[i+1]] ?? 0;
+  return cost;
+}
+function d(dm, a, b) { return dm[a]?.[b] ?? 1e9; }
+
+// ── NEAREST NEIGHBOR ─────────────────────────────────────────────────────────
+function nearestNeighbor(indices, dm, depot) {
+  let rem=[...indices], route=[], cur=depot;
+  while (rem.length) {
+    let best=-1, bd=Infinity;
+    rem.forEach(i=>{ const dd=d(dm,cur,i); if(dd<bd){bd=dd;best=i;} });
+    route.push(best); rem=rem.filter(i=>i!==best); cur=best;
+  }
+  return route;
+}
+
+// ── 2-OPT ────────────────────────────────────────────────────────────────────
+function twoOpt(route, dm, depot) {
+  let r=[...route], improved=true;
+  const deadline = Date.now() + 800; // max 800ms per call
+  while (improved && Date.now() < deadline) {
+    improved=false;
+    for (let i=0; i<r.length-1; i++) {
+      for (let j=i+2; j<r.length; j++) {
+        const a=r[i], b=r[i+1], c=r[j], dd2=j+1<r.length?r[j+1]:depot;
+        if (d(dm,a,c)+d(dm,b,dd2) < d(dm,a,b)+d(dm,c,dd2)-0.01) {
+          r=[...r.slice(0,i+1),...r.slice(i+1,j+1).reverse(),...r.slice(j+1)];
+          improved=true;
+        }
+      }
+    }
+  }
+  return r;
+}
+
+// ── 3-OPT (simplified — delegates to 2-opt for stability) ───────────────────
+function threeOpt(route, dm, depot) {
+  // Run 2-opt twice from different starting points for robustness
+  let r = twoOpt(route, dm, depot);
+  // Or-opt pass as 3-opt substitute (faster, less blocking)
+  r = orOptIntra(r, dm, depot);
+  return twoOpt(r, dm, depot);
+}
+
+// ── OR-OPT INTRA (segments of 1,2,3) ─────────────────────────────────────────
+function orOptIntra(route, dm, depot) {
+  let r=[...route], improved=true;
+  const deadline = Date.now() + 800;
+  while (improved && Date.now() < deadline) {
+    improved=false;
+    for (let segLen=1; segLen<=3; segLen++) {
+      for (let i=0; i<=r.length-segLen; i++) {
+        const seg = r.slice(i, i+segLen);
+        const before = i>0?r[i-1]:depot;
+        const after  = i+segLen<r.length?r[i+segLen]:depot;
+        const removeSaving = d(dm,before,seg[0])+d(dm,seg[segLen-1],after)-d(dm,before,after);
+        // Try inserting segment at every other position
+        const remaining = [...r.slice(0,i),...r.slice(i+segLen)];
+        for (let ins=0; ins<=remaining.length; ins++) {
+          const prev2 = ins>0?remaining[ins-1]:depot;
+          const next2 = ins<remaining.length?remaining[ins]:depot;
+          const insertCost = d(dm,prev2,seg[0])+d(dm,seg[segLen-1],next2)-d(dm,prev2,next2);
+          if (removeSaving - insertCost > 0.01) {
+            r=[...remaining.slice(0,ins),...seg,...remaining.slice(ins)];
+            improved=true; break;
+          }
+          // Also try reversed segment
+          const segR=[...seg].reverse();
+          const insertCostR = d(dm,prev2,segR[0])+d(dm,segR[segLen-1],next2)-d(dm,prev2,next2);
+          if (removeSaving - insertCostR > 0.01) {
+            r=[...remaining.slice(0,ins),...segR,...remaining.slice(ins)];
+            improved=true; break;
+          }
+        }
+        if (improved) break;
+      }
+      if (improved) break;
+    }
+  }
+  return r;
+}
+
+// ── INTER-ROUTE OR-OPT (segments 1,2,3) + SA acceptance ─────────────────────
+function interRouteOptimize(clusters, distMaps, depot, rng) {
+  let improved = true, iters = 0;
+  while (improved && iters < 50) {
+    improved = false; iters++;
+    for (let ri=0; ri<clusters.length; ri++) {
+      if (clusters[ri].length <= 1) continue;
+      for (let segLen=1; segLen<=3; segLen++) {
+        for (let si=0; si<=clusters[ri].length-segLen; si++) {
+          const seg = clusters[ri].slice(si, si+segLen);
+          const dmRi = distMaps[ri];
+          if (!dmRi || !dmRi[seg[0]]) continue;
+          const before = si>0?clusters[ri][si-1]:depot;
+          const after  = si+segLen<clusters[ri].length?clusters[ri][si+segLen]:depot;
+          const removeSaving = d(dmRi,before,seg[0])+d(dmRi,seg[segLen-1],after)-d(dmRi,before,after);
+
+          for (let rj=0; rj<clusters.length; rj++) {
+            if (rj===ri) continue;
+            const dmRj = distMaps[rj];
+            if (!dmRj || !dmRj[seg[0]]) continue;
+            if (clusters[rj].length + segLen > 35) continue; // max stops guard
+
+            const rjFull=[depot,...clusters[rj],depot];
+            let bestGain=0.01, bestPos=-1, bestRev=false;
+            for (let ins=0; ins<rjFull.length-1; ins++) {
+              const a2=rjFull[ins], b2=rjFull[ins+1];
+              const ic  = d(dmRj,a2,seg[0])      +d(dmRj,seg[segLen-1],b2)      -d(dmRj,a2,b2);
+              const icR = d(dmRj,a2,seg[segLen-1])+d(dmRj,seg[0],b2)            -d(dmRj,a2,b2);
+              if (removeSaving-ic  > bestGain) { bestGain=removeSaving-ic;  bestPos=ins; bestRev=false; }
+              if (removeSaving-icR > bestGain) { bestGain=removeSaving-icR; bestPos=ins; bestRev=true;  }
+            }
+            if (bestPos >= 0) {
+              const moveSeg = bestRev?[...seg].reverse():seg;
+              clusters[ri]=[...clusters[ri].slice(0,si),...clusters[ri].slice(si+segLen)];
+              clusters[rj]=[...clusters[rj].slice(0,bestPos),...moveSeg,...clusters[rj].slice(bestPos)];
+              improved=true; break;
+            }
+          }
+          if (improved) break;
+        }
+        if (improved) break;
+      }
+      if (improved) break;
+    }
+  }
+  return clusters;
+}
+
+
+// ── YIELD TO UI (prevents browser freeze) ────────────────────────────────────
+function yieldToUI() { return new Promise(r => setTimeout(r, 0)); }
+
+
+// ── MAIN OPTIMIZATION ─────────────────────────────────────────────────────────
+// ── BACKEND DETECTION ────────────────────────────────────────────────────────
+function getBackendUrl() {
+  return localStorage.getItem('trefzroute_backend_url') || 'https://trefzroute-backend.onrender.com';
+}
+let backendAvailable = false;
+
+async function checkBackend() {
+  try {
+    const res = await fetch(getBackendUrl() + '/health', { signal: AbortSignal.timeout(3000) });
+    backendAvailable = res.ok;
+  } catch { backendAvailable = false; }
+  const dot = document.getElementById('dot');
+  const lbl = document.getElementById('api-lbl');
+  if (backendAvailable) {
+    dot.className = 'dot ok';
+    lbl.textContent = 'OR-Tools Backend aktiv';
+  } else {
+    dot.className = 'dot';
+    lbl.textContent = 'Browser-Modus';
+  }
+}
+checkBackend();
+setInterval(checkBackend, 10000);
+loadCoordOverrides(); // Gespeicherte Koordinaten-Überschreibungen in Cache laden
+
+async function runOptimization() {
+  const keys  = getKeys();
+  const depot = document.getElementById('depot').value.trim();
+
+  // Feste Parameter
+  const SERVICE_TIME_MIN = 15;          // 15 Min Abladezeit
+  const MAX_DURATION_S   = 9 * 3600;    // 07:30–16:30 = 9 Stunden
+
+  if (!keys.length)         return toast('Bitte mindestens einen ORS API Key in den Einstellungen eintragen.', 'err');
+  if (!depot)               return toast('Bitte Depot-Adresse eingeben.', 'err');
+  if (addresses.length < 2) return toast('Bitte mindestens 2 Adressen eingeben.', 'err');
+
+  keyIndex = 0;
+  document.getElementById('run-btn').disabled = true;
+  showProg(true); clearLog();
+  prog(0, 'Starte...');
+  setStatus('-');
+
+  try {
+    // 1. Geocode depot
+    prog(3, 'Geocoding Depot...');
+    log('Geocode Depot: ' + depot);
+    const depotGeo = await geocodeORS(depot, keys);
+    setStatus('ok');
+
+    // 2. Geocode all addresses — parallel in batches of 10
+    const geoPoints = [depotGeo];
+    const failed = [];
+    const BATCH = 5;  // kleinere Batches = weniger gleichzeitige Key-Last
+    const geoResults = new Array(addresses.length).fill(null);
+
+    for (let i = 0; i < addresses.length; i += BATCH) {
+      const batchEnd = Math.min(i + BATCH, addresses.length);
+      prog(3 + Math.round((i / addresses.length) * 32), `Geocoding ${i+1}–${batchEnd}/${addresses.length}...`);
+      await Promise.all(
+        addresses.slice(i, batchEnd).map(async (addr, bi) => {
+          const idx = i + bi;
+          try {
+            geoResults[idx] = await geocodeORS(addr, keys);
+          } catch(e) {
+            failed.push({ idx, original: addr });
+            geoResults[idx] = depotGeo; // temp fallback
+          }
+        })
+      );
+      if (batchEnd < addresses.length) await sleep(200);
+    }
+
+    geoResults.forEach(r => geoPoints.push(r));
+
+    // Wenn Fehler: Modal zeigen, Benutzer korrigiert, dann fortfahren
+    if (failed.length) {
+      document.getElementById('run-btn').disabled = false;
+      showProg(false);
+      showGeoErrorModal(failed, geoPoints, async (correctedGeoPoints) => {
+        // Nach Korrektur: weitermachen mit korrigierten Punkten
+        document.getElementById('run-btn').disabled = true;
+        showProg(true);
+        await continueAfterGeocoding(correctedGeoPoints, keys, depot, SERVICE_TIME_MIN, MAX_DURATION_S);
+        document.getElementById('run-btn').disabled = false;
+        setTimeout(() => showProg(false), 2000);
+      });
+      return; // Pausieren bis Korrektur
+    }
+
+    await continueAfterGeocoding(geoPoints, keys, depot, SERVICE_TIME_MIN, MAX_DURATION_S);
+
+  } catch(e) {
+    setStatus('err');
+    toast('Fehler: ' + e.message, 'err', 9000);
+    log('FEHLER: ' + e.message, 'err');
+    console.error(e);
+  } finally {
+    document.getElementById('run-btn').disabled = false;
+    setTimeout(() => showProg(false), 2000);
+  }
+}
+
+async function orsMatrixSourcesDest(sourceLocs, destLocs, keys) {
+  const combined = [...sourceLocs, ...destLocs];
+  const srcIdx = sourceLocs.map((_, i) => i);
+  const dstIdx = destLocs.map((_, i) => sourceLocs.length + i);
+  const body = {
+    locations: combined,
+    sources: srcIdx,
+    destinations: dstIdx,
+    metrics: ['distance', 'duration'],
+    units: 'm'
+  };
+  let attempts = 0;
+  while (attempts <= keys.length) {
+    const key = keys[keyIndex % keys.length];
+    const res = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+      method: 'POST',
+      headers: { 'Authorization': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (res.status === 429 || res.status === 403) { rotateKey(keys); attempts++; continue; }
+    if (!res.ok) { const err = await res.text(); throw new Error(`Matrix: ${res.status}`); }
+    const data = await res.json();
+    return { distances: data.distances, durations: data.durations };
+  }
+  throw new Error('Alle Keys erschöpft.');
+}
+
+async function continueAfterGeocoding(geoPoints, keys, depot, SERVICE_TIME_MIN, MAX_DURATION_S) {
+  try {
+    const n = geoPoints.length;
+    const allLocs = geoPoints.map(g => [g.lng, g.lat]);
+
+    // ── OR-TOOLS BACKEND PATH ─────────────────────────────────────────────
+    if (backendAvailable) {
+      const nStops = geoPoints.length - 1; // ohne Depot
+      const depotPt = geoPoints[0];
+
+      // Schritt 1: Geografisches K-Means Clustering
+      // Zielgröße: max 35 Stopps pro Cluster (ORS-Limit 50 inkl. Depot)
+      const TARGET_PER_CLUSTER = 35;
+      const numClusters = Math.max(1, Math.ceil(nStops / TARGET_PER_CLUSTER));
+      prog(38, `Geografisches Clustering (${numClusters} Gruppen)...`);
+
+      const stopPoints = geoPoints.slice(1);
+      const clusterAssign = kmeans(stopPoints, numClusters);
+      const clusters = Array.from({length: numClusters}, () => []);
+      stopPoints.forEach((_, i) => clusters[clusterAssign[i]].push(i + 1));
+
+      // ── Kleine Cluster zusammenführen ────────────────────────────────────
+      // Cluster mit < 5 Stopps werden mit dem geografisch nächsten Cluster
+      // zusammengeführt BEVOR OR-Tools rechnet — so werden alle Stopps korrekt optimiert
+      const MIN_CLUSTER_SIZE = 5;
+      let mergedClusters = clusters.filter(c => c.length > 0);
+
+      let merged = true;
+      while (merged) {
+        merged = false;
+        for (let i = 0; i < mergedClusters.length; i++) {
+          if (mergedClusters[i].length >= MIN_CLUSTER_SIZE) continue;
+
+          // Berechne Zentroid dieses kleinen Clusters
+          const smallCentroid = {
+            lat: mergedClusters[i].reduce((s, gi) => s + geoPoints[gi].lat, 0) / mergedClusters[i].length,
+            lng: mergedClusters[i].reduce((s, gi) => s + geoPoints[gi].lng, 0) / mergedClusters[i].length,
+          };
+
+          // Finde nächsten anderen Cluster
+          let bestJ = -1, bestDist = Infinity;
+          for (let j = 0; j < mergedClusters.length; j++) {
+            if (j === i || mergedClusters[j].length === 0) continue;
+            const c = {
+              lat: mergedClusters[j].reduce((s, gi) => s + geoPoints[gi].lat, 0) / mergedClusters[j].length,
+              lng: mergedClusters[j].reduce((s, gi) => s + geoPoints[gi].lng, 0) / mergedClusters[j].length,
+            };
+            const d = Math.hypot(c.lat - smallCentroid.lat, c.lng - smallCentroid.lng);
+            if (d < bestDist) { bestDist = d; bestJ = j; }
+          }
+
+          if (bestJ >= 0) {
+            // Zusammenführen: nur wenn Zielcluster noch unter 35 Stopps bleibt
+            if (mergedClusters[bestJ].length + mergedClusters[i].length <= TARGET_PER_CLUSTER) {
+              mergedClusters[bestJ].push(...mergedClusters[i]);
+              mergedClusters.splice(i, 1);
+              merged = true;
+              break;
+            }
+          }
+        }
+      }
+
+      const nonEmpty = mergedClusters.filter(c => c.length > 0);
+
+      // ── Plausibilitätscheck ───────────────────────────────────────────────
+      // Zwei Kriterien für Verschiebung (eines reicht):
+      // 1. Relativer Check: nächster Nachbar in anderem Cluster ist 1.5x näher
+      // 2. Absoluter Check: Stopp ist mehr als 40km vom Zentroid seines Clusters entfernt
+      //    UND näher am Zentroid eines anderen Clusters
+      const REASSIGN_FACTOR = 1.5;
+      const MAX_DIST_DEG = 0.36; // ~40km in Grad (1° ≈ 111km)
+      let reassignCount = 0;
+
+      function geoDistDeg(a, b) {
+        return Math.hypot(a.lat - b.lat, a.lng - b.lng);
+      }
+
+      function clusterCentroid(cluster) {
+        return {
+          lat: cluster.reduce((s, gi) => s + geoPoints[gi].lat, 0) / cluster.length,
+          lng: cluster.reduce((s, gi) => s + geoPoints[gi].lng, 0) / cluster.length,
+        };
+      }
+
+      for (let pass = 0; pass < 8; pass++) {
+        let changed = false;
+        for (let ci = 0; ci < nonEmpty.length; ci++) {
+          const cluster = nonEmpty[ci];
+          if (cluster.length <= 1) continue;
+          const ownCentroid = clusterCentroid(cluster);
+
+          for (let si = cluster.length - 1; si >= 0; si--) {
+            const gi = cluster[si];
+            const pt = geoPoints[gi];
+
+            // Nächster Nachbar im eigenen Cluster
+            let minOwn = Infinity;
+            for (let sj = 0; sj < cluster.length; sj++) {
+              if (sj === si) continue;
+              const d = geoDistDeg(pt, geoPoints[cluster[sj]]);
+              if (d < minOwn) minOwn = d;
+            }
+
+            // Distanz zum eigenen Zentroid
+            const distToOwnCentroid = geoDistDeg(pt, ownCentroid);
+
+            // Nächster Nachbar + nächstes Zentroid in anderem Cluster
+            let bestOtherCluster = -1, minOther = Infinity, minOtherCentroid = Infinity;
+            for (let cj = 0; cj < nonEmpty.length; cj++) {
+              if (cj === ci) continue;
+              const otherCentroid = clusterCentroid(nonEmpty[cj]);
+              const dc = geoDistDeg(pt, otherCentroid);
+              if (dc < minOtherCentroid) { minOtherCentroid = dc; }
+              for (const gj of nonEmpty[cj]) {
+                const d = geoDistDeg(pt, geoPoints[gj]);
+                if (d < minOther) { minOther = d; bestOtherCluster = cj; }
+              }
+            }
+
+            const relativeCheck  = bestOtherCluster >= 0 && minOther * REASSIGN_FACTOR < minOwn;
+            const absoluteCheck  = distToOwnCentroid > MAX_DIST_DEG && minOtherCentroid < distToOwnCentroid;
+
+            if ((relativeCheck || absoluteCheck) && bestOtherCluster >= 0) {
+              if (nonEmpty[bestOtherCluster].length < TARGET_PER_CLUSTER) {
+                nonEmpty[bestOtherCluster].push(gi);
+                cluster.splice(si, 1);
+                reassignCount++;
+                changed = true;
+              }
+            }
+          }
+        }
+        if (!changed) break;
+      }
+
+      if (reassignCount > 0)
+        log(`Plausibilitätscheck: ${reassignCount} Stopp(s) in besseren Cluster verschoben`, 'ok');
+
+      const finalClusters = nonEmpty.filter(c => c.length > 0);
+      log(`${finalClusters.length} geografische Gruppen nach Clustering, Ø ${(nStops/finalClusters.length).toFixed(1)} Stopps`, 'ok');
+
+      // Schritt 2: Pro Cluster ORS-Matrix + OR-Tools — parallel in Batches von 4
+      const allRoutes = [];
+      let routeId = 1;
+      const PARALLEL = 4;
+
+      async function processCluster(ci) {
+        const clusterIdx = finalClusters[ci];
+        const localIdx   = [0, ...clusterIdx];
+        const localLocs  = localIdx.map(i => [geoPoints[i].lng, geoPoints[i].lat]);
+        const localAddrs = localIdx.map(i => i === 0 ? depot : addresses[i - 1]);
+
+        // ORS-Matrix
+        let distMatrix, durMatrix;
+        try {
+          const m = await orsMatrix(localLocs, keys);
+          distMatrix = m.distances.map(row => [...row]);  // beschreibbare Kopie
+          durMatrix  = m.durations.map(row => [...row]);  // beschreibbare Kopie
+        } catch(e) {
+          log(`Gruppe ${ci+1}: ORS-Matrix Fehler, nutze Luftlinie`, 'err');
+          distMatrix = localLocs.map((a, ii) => localLocs.map((b, jj) => {
+            const R = 6371000;
+            const dLat = (geoPoints[localIdx[jj]].lat - geoPoints[localIdx[ii]].lat) * Math.PI/180;
+            const dLng = (geoPoints[localIdx[jj]].lng - geoPoints[localIdx[ii]].lng) * Math.PI/180;
+            const x = Math.sin(dLat/2)**2 + Math.cos(geoPoints[localIdx[ii]].lat*Math.PI/180) *
+                      Math.cos(geoPoints[localIdx[jj]].lat*Math.PI/180) * Math.sin(dLng/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+          }));
+          durMatrix = distMatrix.map(row => row.map(d => d / 13.89));
+        }
+
+        // Abladezeit: 15 Min erster Besuch, 5 Min Folgebesuche
+        // Als separates Array ans Backend — nicht in durMatrix einrechnen
+        const travelDurMatrix = durMatrix; // durMatrix = reine Fahrzeit
+        const svcFirst  = SERVICE_TIME_MIN * 60;
+        const svcRepeat = 5 * 60;
+        const addrSeenLocal = {};
+        const serviceTimes = localIdx.map((_, j) => {
+          if (j === 0) return 0; // Depot: keine Abladezeit
+          const addr = localAddrs[j];
+          const svc = addrSeenLocal[addr] ? svcRepeat : svcFirst;
+          addrSeenLocal[addr] = true;
+          return svc;
+        });
+
+        const payload = {
+          addresses: localAddrs,
+          dist_matrix: distMatrix,
+          dur_matrix:  travelDurMatrix,
+          service_times: serviceTimes,
+          max_stops_per_route: 999,
+          max_duration_s: MAX_DURATION_S,
+        };
+
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 60000);
+          const res = await fetch(getBackendUrl() + '/optimize_matrix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (!res.ok) throw new Error('Backend ' + res.status);
+          const data = await res.json();
+          return data.routes.map(r => ({
+            stops: r.stops.map(s => ({
+              addr: s.address,
+              legDistM: s.leg_dist_m,
+              legDistText: s.leg_dist_text,
+              legDurText: s.leg_dur_text,
+              arrivalTime: s.arrival_time || null,
+            })),
+            totalDist: r.total_dist_m,
+            totalDur: r.total_dur_s,
+            feasible: r.feasible !== false,
+            departureTime: r.departure_time || null,
+            returnTime: r.return_time || null,
+          }));
+        } catch(e) {
+          log(`Gruppe ${ci+1}: Fehler (${e.message}), übersprungen`, 'err');
+          return [];
+        }
+      }
+
+      // Verarbeite in parallelen Batches
+      const results = new Array(finalClusters.length).fill(null);
+      for (let i = 0; i < finalClusters.length; i += PARALLEL) {
+        const batchEnd = Math.min(i + PARALLEL, finalClusters.length);
+        prog(40 + Math.round((i / finalClusters.length) * 45),
+          `Gruppen ${i+1}–${batchEnd}/${finalClusters.length} werden optimiert...`);
+        const batch = Array.from({length: batchEnd - i}, (_, k) => processCluster(i + k));
+        const batchResults = await Promise.all(batch);
+        batchResults.forEach((routes, k) => { results[i + k] = routes; });
+        if (batchEnd < finalClusters.length) await sleep(100);
+      }
+
+      // Ergebnisse in Reihenfolge sammeln
+      results.forEach(routes => {
+        if (!routes) return;
+        routes.forEach(r => allRoutes.push({ id: routeId++, ...r }));
+      });
+
+      // Renummeriere Routen
+      allRoutes.forEach((r, i) => r.id = i + 1);
+
+      routeResult = allRoutes;
+      prog(100, 'Fertig!');
+      renderResults(allRoutes, depot, []);
+      toast(`${allRoutes.length} Routen via OR-Tools berechnet!`, 'ok');
+      return;
+    }
+
+    // ── BROWSER FALLBACK PATH ─────────────────────────────────────────────
+    const estStopsPerRoute = Math.floor((9 * 60) / (15 + 30));
+    const autoRoutes = Math.max(1, Math.ceil(addresses.length / estStopsPerRoute));
+    const addrPoints = geoPoints.slice(1);
+    const assignments = kmeans(addrPoints, autoRoutes);
+    const clusters = Array.from({length: autoRoutes}, () => []);
+    addrPoints.forEach((_, i) => clusters[assignments[i]].push(i + 1));
+    const nonEmpty = clusters.filter(c => c.length > 0);
+
+    prog(42, 'Distanzmatrizen berechnen...');
+    const routes = [];
+
+    for (let ci = 0; ci < nonEmpty.length; ci++) {
+      const clusterIndices = [0, ...nonEmpty[ci]];
+      prog(42 + Math.round((ci / nonEmpty.length) * 40), `Matrix Route ${ci+1}/${nonEmpty.length}...`);
+      const locs = clusterIndices.map(i => [geoPoints[i].lng, geoPoints[i].lat]);
+
+      let dist, dur;
+      if (locs.length <= 50) {
+        const m = await orsMatrix(locs, keys);
+        dist = m.distances;
+        dur  = m.durations;
+      } else {
+        dist = locs.map((a, i) => locs.map((b, j) => haversine(geoPoints[clusterIndices[i]], geoPoints[clusterIndices[j]])));
+        dur  = dist.map(row => row.map(d => d / 13.89));
+      }
+
+      const localDist = {}, localDur = {};
+      clusterIndices.forEach((globalI, li) => {
+        localDist[globalI] = {}; localDur[globalI] = {};
+        clusterIndices.forEach((globalJ, lj) => {
+          localDist[globalI][globalJ] = dist[li][lj];
+          localDur[globalI][globalJ]  = dur[li][lj];
+        });
+      });
+
+      let optimized = nearestNeighbor(nonEmpty[ci], localDist, 0);
+      await yieldToUI();
+      optimized = twoOpt(optimized, localDist, 0);
+      await yieldToUI();
+      optimized = orOptIntra(optimized, localDist, 0);
+      await yieldToUI();
+      optimized = twoOpt(optimized, localDist, 0);
+      await yieldToUI();
+
+      let totalDist = 0, totalDur = 0;
+      const full = [0, ...optimized, 0];
+      for (let i = 0; i < full.length - 1; i++) {
+        totalDist += localDist[full[i]]?.[full[i+1]] ?? 0;
+        totalDur  += localDur[full[i]]?.[full[i+1]] ?? 0;
+      }
+      const stopDetails = optimized.map((globalIdx, si) => {
+        const from = si === 0 ? 0 : optimized[si-1];
+        const legDist = localDist[from]?.[globalIdx] ?? 0;
+        const legDur  = localDur[from]?.[globalIdx] ?? 0;
+        return {
+          addr: addresses[globalIdx - 1],
+          legDistM: legDist,
+          legDistText: legDist < 1000 ? Math.round(legDist) + ' m' : (legDist/1000).toFixed(1) + ' km',
+          legDurText: legDur < 60 ? Math.round(legDur) + ' s' : Math.round(legDur/60) + ' min',
+        };
+      });
+      routes.push({ id: ci+1, stops: stopDetails, totalDist, totalDur,
+        _optimized: optimized, _localDist: localDist, _localDur: localDur });
+      await sleep(300);
+    }
+
+    prog(95, 'Inter-Route Optimierung...');
+    await yieldToUI();
+    const rngFinal = mulberry32(12345);
+    const orClusters = routes.map(r => [...r._optimized]);
+    const orDistMaps = routes.map(r => r._localDist);
+    interRouteOptimize(orClusters, orDistMaps, 0, rngFinal);
+    await yieldToUI();
+
+    const browserRoutes = routes.map((r, ri) => {
+      const optimized = orClusters[ri];
+      const localDist = r._localDist;
+      const localDur  = r._localDur;
+      let totalDist = 0, totalDur = 0;
+      const full = [0, ...optimized, 0];
+      for (let i = 0; i < full.length - 1; i++) {
+        totalDist += localDist[full[i]]?.[full[i+1]] ?? 0;
+        totalDur  += localDur[full[i]]?.[full[i+1]] ?? 0;
+      }
+      const stopDetails = optimized.map((globalIdx, si) => {
+        const from = si === 0 ? 0 : optimized[si-1];
+        const legDist = localDist[from]?.[globalIdx] ?? 0;
+        const legDur  = localDur[from]?.[globalIdx] ?? 0;
+        return {
+          addr: addresses[globalIdx - 1],
+          legDistM: legDist,
+          legDistText: legDist < 1000 ? Math.round(legDist) + ' m' : (legDist/1000).toFixed(1) + ' km',
+          legDurText: legDur < 60 ? Math.round(legDur) + ' s' : Math.round(legDur/60) + ' min',
+        };
+      });
+      return { id: r.id, stops: stopDetails, totalDist, totalDur };
+    });
+
+    routeResult = browserRoutes;
+    prog(100, 'Fertig!');
+    renderResults(browserRoutes, depot, []);
+    toast(`${browserRoutes.length} Routen erfolgreich berechnet!`, 'ok');
+
+  } catch(e) {
+    setStatus('err');
+    toast('Fehler: ' + e.message, 'err', 9000);
+    log('FEHLER: ' + e.message, 'err');
+    console.error(e);
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function haversine(a, b) {
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderResults(routes, depot, warnings) {
+  const totalDist  = routes.reduce((s,r) => s + r.totalDist, 0);
+  const totalDurMin = routes.reduce((s,r) => s + realDuration(r), 0);
+  const totalStops = routes.reduce((s,r) => s + r.stops.length, 0);
+  const totalH = Math.floor(totalDurMin / 60);
+  const totalM = totalDurMin % 60;
+
+  document.getElementById('empty-state').style.display = 'none';
+  const el = document.getElementById('results');
+  el.style.display = 'block';
+
+  const warningsHtml = warnings && warnings.length ? `
+    <div style="background:#fff3cd;border:1px solid #e8c84a;border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-family:var(--mono);font-size:11px;color:#7a6000;">
+      <strong>⚠ Tageslimit überschritten:</strong><br>
+      ${warnings.map(w => `• ${w}`).join('<br>')}
+    </div>` : '';
+
+  el.innerHTML = `
+    <div class="res-header">
+      <div class="res-title"><span>${routes.length}</span> Routen berechnet</div>
+      <div class="res-meta">
+        <span><strong>${totalStops}</strong> Stopps</span>
+        <span><strong>${(totalDist/1000).toFixed(0)} km</strong> gesamt</span>
+        <span><strong>${totalH}h ${totalM}m</strong> gesamt</span>
+      </div>
+    </div>
+    ${warningsHtml}
+    <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="exportCSV()">⬇ Alle Routen als Excel</button>
+    </div>
+    <div class="routes-grid">
+      ${routes.map(r => renderCard(r, depot)).join('')}
+    </div>
+  `;
+}
+
+// Berechnet echte Dauer: Rückkehr - Abfahrt in Minuten
+function realDuration(r) {
+  if (r.departureTime && r.returnTime) {
+    const [dh, dm] = r.departureTime.split(':').map(Number);
+    const [rh, rm] = r.returnTime.split(':').map(Number);
+    return (rh * 60 + rm) - (dh * 60 + dm);
+  }
+  return Math.round(r.totalDur / 60);
+}
+
+function fmtDur(totalMin) {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function renderCard(r, depot) {
+  const km = (r.totalDist/1000).toFixed(1);
+  const durMin = realDuration(r);
+  const stopAddrs = r.stops.map(s => s.addr);
+
+  // Doppelte aufeinanderfolgende Adressen entfernen
+  const uniqueAddrs = [];
+  for (const addr of stopAddrs) {
+    if (uniqueAddrs[uniqueAddrs.length - 1] !== addr) uniqueAddrs.push(addr);
+  }
+
+  // Altes Google Maps Format: /maps/dir/A/B/C/... — kein Wegpunkt-Limit, viel kürzere URLs
+  const encDir = s => encodeURIComponent(s).replace(/%20/g, '+');
+  const MAX_URL = 7500;
+  const mapsUrls = [];
+  let i = 0;
+  while (i < uniqueAddrs.length) {
+    const startAddr = i === 0 ? depot : uniqueAddrs[i - 1];
+    let chunk = [startAddr];
+    let j = i;
+    while (j < uniqueAddrs.length) {
+      const testChunk = [...chunk, uniqueAddrs[j]];
+      const isLast = j + 1 >= uniqueAddrs.length;
+      const testAddrs = isLast ? [...testChunk, depot] : testChunk;
+      const testUrl = 'https://www.google.com/maps/dir/' + testAddrs.map(encDir).join('/');
+      if (testUrl.length > MAX_URL && chunk.length > 1) break;
+      chunk = testChunk;
+      j++;
+    }
+    const isLast = j >= uniqueAddrs.length;
+    const allAddrs = isLast ? [...chunk, depot] : chunk;
+    mapsUrls.push('https://www.google.com/maps/dir/' + allAddrs.map(encDir).join('/'));
+    i = j;
+  }
+  if (mapsUrls.length === 0) {
+    mapsUrls.push('https://www.google.com/maps/dir/' + encDir(depot));
+  }
+
+  const mapsLinksHtml = mapsUrls.length === 1
+    ? `<a href="${mapsUrls[0]}" target="_blank" class="btn btn-sm">🗺 Google Maps</a>`
+    : mapsUrls.map((url, i) =>
+        `<a href="${url}" target="_blank" class="btn btn-sm">🗺 Maps ${i+1}/${mapsUrls.length}</a>`
+      ).join('');
+  const infeasible = r.feasible === false;
+  const borderStyle = infeasible ? 'border-color:#e8c84a;' : '';
+  const warningBadge = infeasible ? `<span style="font-family:var(--mono);font-size:10px;background:#fff3cd;color:#7a6000;border:1px solid #e8c84a;border-radius:4px;padding:2px 6px;margin-left:8px;">⚠ Tageslimit</span>` : '';
+
+  const stopsHtml = r.stops.map((s, i) => `
+    <div class="stop-item">
+      <div class="stop-num">${i+1}</div>
+      <div>${s.addr}</div>
+      <div class="stop-dist">${s.arrivalTime ? `<strong>${s.arrivalTime}</strong> · ` : ''}${s.legDistText} · ${s.legDurText}</div>
+    </div>`).join('');
+
+  const depotLine = `<div class="stop-item" style="color:var(--accent);font-family:var(--mono);font-size:11px;">
+    <div></div>
+    <div>▶ Abfahrt: ${depot}${r.departureTime ? ` um <strong>${r.departureTime}</strong>` : ''}</div>
+    <div></div>
+  </div>`;
+
+  return `
+    <div class="route-card" id="rc-${r.id}" style="${borderStyle}">
+      <div class="route-hdr" onclick="toggleCard(${r.id})">
+        <div class="route-id">R${String(r.id).padStart(2,'0')}</div>
+        <div class="route-name">Route ${r.id}${warningBadge}</div>
+        <div class="route-stats">
+          <div><strong>${r.stops.length}</strong> Stopps</div>
+          <div><strong>${km} km</strong></div>
+          <div><strong>${fmtDur(durMin)}</strong></div>
+        </div>
+        <div class="chev">▼</div>
+      </div>
+      <div class="route-body">
+        <div class="route-actions">
+          <button class="btn btn-sm" onclick="copyRoute(${r.id})">📋 Kopieren</button>
+          <button class="btn btn-sm" onclick="downloadRouteXLSX(${r.id})">⬇ Excel</button>
+        </div>
+        <div class="stops-list">
+          ${depotLine}
+          ${stopsHtml}
+          <div class="stop-item" style="color:var(--muted);font-family:var(--mono);font-size:11px;">
+            <div></div><div>↩ Rückkehr Depot${r.returnTime ? ` um <strong>${r.returnTime}</strong>` : ''}</div><div></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleCard(id) { document.getElementById('rc-'+id).classList.toggle('open'); }
+
+// ── GOOGLE MAPS LINK ──────────────────────────────────────────────────────────
+function googleMapsUrl(stopAddrs, depot) {
+  const enc = s => encodeURIComponent(s);
+  const wps = stopAddrs.slice(0, 23).map(enc).join('|');
+  return `https://www.google.com/maps/dir/?api=1&origin=${enc(depot)}&destination=${enc(depot)}&waypoints=${wps}&travelmode=driving`;
+}
+
+// Gibt alle nötigen Maps-Links zurück (je max 23 Stopps)
+function googleMapsUrls(stopAddrs, depot) {
+  const enc = s => encodeURIComponent(s);
+  const CHUNK = 23;
+  const urls = [];
+  for (let i = 0; i < stopAddrs.length; i += CHUNK) {
+    const chunk = stopAddrs.slice(i, i + CHUNK);
+    const origin = i === 0 ? depot : stopAddrs[i - 1];
+    const dest   = i + CHUNK >= stopAddrs.length ? depot : stopAddrs[i + CHUNK - 1];
+    const wps    = chunk.map(enc).join('|');
+    urls.push(`https://www.google.com/maps/dir/?api=1&origin=${enc(origin)}&destination=${enc(dest)}&waypoints=${wps}&travelmode=driving`);
+  }
+  return urls;
+}
+
+function exportAllMaps() {
+  const depot = document.getElementById('depot').value;
+  routeResult.forEach((r, i) => {
+    setTimeout(() => window.open(googleMapsUrl(r.stops.map(s=>s.addr), depot), '_blank'), i * 400);
+  });
+}
+
+// ── XLSX EXPORT ───────────────────────────────────────────────────────────────
+function roundToFive(min) {
+  return Math.round(min / 5) * 5;
+}
+
+function calcZeitfenster(arrivalTime) {
+  if (!arrivalTime || arrivalTime === '—') return '—';
+  const [hh, mm] = arrivalTime.split(':').map(Number);
+  const totalMin = hh * 60 + mm;
+  const rounded = roundToFive(totalMin);
+  const from = Math.max(7 * 60, rounded - 60); // min 07:00
+  const to   = rounded + 60;
+  const fmt = m => String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  return fmt(from) + ' – ' + fmt(to);
+}
+
+function buildRouteSheet(r, depot) {
+  const km     = (r.totalDist/1000).toFixed(1);
+  const durMin = realDuration(r);
+  const h      = Math.floor(durMin / 60);
+  const min    = durMin % 60;
+  const dep    = r.departureTime || '—';
+  const lastArr= r.stops.length ? (r.stops[r.stops.length-1].arrivalTime || '—') : '—';
+  const ret    = r.returnTime || '—';
+
+  // Abladezeit
+  const addrSeen = {};
+  const unloadTimes = r.stops.map(s => {
+    const svc = addrSeen[s.addr] ? '5 min' : '15 min';
+    addrSeen[s.addr] = true;
+    return svc;
+  });
+
+  // SheetJS mit openpyxl-ähnlichem Styling über sheet_add_aoa + cell styles
+  // Wir bauen die Daten als AOA und stylen danach via cell objects
+  const COLS = 6; // Stopp-Nr, Adresse, Zeitfenster, Strecke, Fahrzeit, Abladezeit
+
+  const aoa = [];
+  // Zeile 1-3: Header-Info
+  aoa.push([`TrefzRoute — Route ${r.id}`, '', '', '', '', '']);
+  aoa.push([`Datum: ${new Date().toLocaleDateString('de-DE')}   |   Depot: ${depot}`, '', '', '', '', '']);
+  aoa.push([`Gesamt: ${r.stops.length} Stopps   |   ${km} km   |   ${h}h ${min}min   |   Abfahrt: ${dep}   |   Letzte Zustellung: ${lastArr}   |   Rückkehr: ${ret}`, '', '', '', '', '']);
+  aoa.push(['', '', '', '', '', '']); // leer
+  // Spaltenheader
+  aoa.push(['Stopp-Nr', 'Adresse', 'Zeitfenster', 'Strecke zum Stopp', 'Fahrzeit zum Stopp', 'Abladezeit']);
+  // Abfahrt
+  aoa.push(['Abfahrt', depot, dep, '—', '— (Abfahrt)', '—']);
+  // Stopps
+  r.stops.forEach((s, i) => {
+    const isDup = s.legDistM === 0 || s.legDistText === '0 m';
+    aoa.push([
+      `${r.id}/${i+1}`,
+      s.addr,
+      calcZeitfenster(s.arrivalTime),
+      isDup ? '0 m' : s.legDistText,
+      isDup ? '0 min' : s.legDurText,
+      unloadTimes[i],
+    ]);
+  });
+  // Rückkehr
+  aoa.push([`${r.id}/${r.stops.length+1}`, depot, ret, '—', '— (Rückkehr)', '—']);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Spaltenbreiten — auto-fit basierend auf Inhalt
+  const colWidths = [10, 0, 16, 18, 18, 12];
+  // Adresse: längste Adresse + Puffer
+  const addrMax = Math.max(depot.length, ...r.stops.map(s => s.addr.length));
+  colWidths[1] = Math.min(Math.max(addrMax + 2, 25), 65);
+  ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+  // Merges für Titelzeilen
+  ws['!merges'] = [
+    { s:{r:0,c:0}, e:{r:0,c:COLS-1} },
+    { s:{r:1,c:0}, e:{r:1,c:COLS-1} },
+    { s:{r:2,c:0}, e:{r:2,c:COLS-1} },
+  ];
+
+  // Styling via cell objects
+  const HEADER_BG  = 'FF305496';
+  const HEADER_FG  = 'FFFFFFFF';
+  const DEPOT_BG   = 'FFFFE699';
+  const BORDER_CLR = 'FFBFBFBF';
+
+  function border() {
+    return {
+      left:   { style: 'thin', color: { rgb: BORDER_CLR } },
+      right:  { style: 'thin', color: { rgb: BORDER_CLR } },
+      top:    { style: 'thin', color: { rgb: BORDER_CLR } },
+      bottom: { style: 'thin', color: { rgb: BORDER_CLR } },
+    };
+  }
+
+  function styleCell(addr, opts) {
+    if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+    ws[addr].s = {
+      font:      { name: 'Arial', sz: 10, bold: opts.bold || false, color: { rgb: opts.fg || 'FF000000' } },
+      fill:      opts.bg ? { fgColor: { rgb: opts.bg }, patternType: 'solid' } : undefined,
+      border:    opts.border ? border() : undefined,
+      alignment: { wrapText: true, vertical: 'center', horizontal: opts.center ? 'center' : 'left' },
+    };
+  }
+
+  const colLetters = ['A','B','C','D','E','F'];
+
+  // Titelzeilen (Zeilen 1-4, index 0-3)
+  for (let c = 0; c < COLS; c++) {
+    styleCell(colLetters[c] + '1', { bold: true });
+    styleCell(colLetters[c] + '2', {});
+    styleCell(colLetters[c] + '3', {});
+  }
+
+  // Spaltenheader (Zeile 5, index 4)
+  for (let c = 0; c < COLS; c++) {
+    styleCell(colLetters[c] + '5', { bold: true, bg: HEADER_BG, fg: HEADER_FG, border: true, center: c === 0 });
+  }
+
+  // Abfahrt (Zeile 6, index 5)
+  for (let c = 0; c < COLS; c++) {
+    styleCell(colLetters[c] + '6', { bold: true, bg: DEPOT_BG, border: true, center: c === 0 });
+  }
+
+  // Stopp-Zeilen (ab Zeile 7)
+  const stopCount = r.stops.length;
+  for (let i = 0; i < stopCount; i++) {
+    const rowNum = 7 + i;
+    for (let c = 0; c < COLS; c++) {
+      styleCell(colLetters[c] + rowNum, { border: true, center: c === 0 });
+    }
+  }
+
+  // Rückkehr (letzte Datenzeile)
+  const retRow = 7 + stopCount;
+  for (let c = 0; c < COLS; c++) {
+    styleCell(colLetters[c] + retRow, { bold: true, bg: DEPOT_BG, border: true, center: c === 0 });
+  }
+
+  return ws;
+}
+
+function downloadRouteXLSX(id) {
+  const r = routeResult.find(x => x.id === id);
+  if (!r) return;
+  const depot = document.getElementById('depot').value;
+  exportExcelViaBackend(routeResult, depot, id);
+  toast(`Route ${id} wird als Excel vorbereitet...`);
+}
+
+function exportCSV() {
+  if (!routeResult.length) return;
+  const depot = document.getElementById('depot').value;
+  exportExcelViaBackend(routeResult, depot, null);
+  toast('Excel wird vorbereitet...');
+}
+
+async function exportExcelViaBackend(routes, depot, singleId) {
+  try {
+    const payload = {
+      routes: routes.map(r => ({
+        id: r.id,
+        stops: r.stops.map(s => {
+          const gd = lookupGrunddaten(s.addr);
+          return {
+            addr: s.addr,
+            arrivalTime: s.arrivalTime || null,
+            legDistText: s.legDistText,
+            legDurText: s.legDurText,
+            legDistM: s.legDistM || 0,
+            schulname: gd ? gd.schulname : '',
+            tel: gd ? gd.tel : '',
+            email: gd ? gd.email : '',
+          };
+        }),
+        totalDist: r.totalDist,
+        totalDur: r.totalDur,
+        departureTime: r.departureTime || null,
+        returnTime: r.returnTime || null,
+      })),
+      depot: depot,
+      single_route_id: singleId,
+      has_grunddaten: Object.keys(grunddatenMap).length > 0,
+    };
+
+    const res = await fetch(getBackendUrl() + '/export_excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error('Backend ' + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().slice(0,10);
+    a.download = singleId
+      ? `TrefzRoute_R${String(singleId).padStart(2,'0')}_${date}.xlsx`
+      : `TrefzRoute_Alle_${date}.xlsx`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Excel heruntergeladen!');
+  } catch(e) {
+    toast('Excel-Export fehlgeschlagen: ' + e.message, 'err');
+  }
+}
+
+function copyRoute(id) {
+  const r = routeResult.find(x => x.id === id);
+  if (!r) return;
+  const depot = document.getElementById('depot').value;
+  const text = `Route ${r.id}\nStart: ${depot}\n` + r.stops.map((s,i) => `${i+1}. ${s.addr}`).join('\n') + `\nRückkehr: ${depot}`;
+  navigator.clipboard.writeText(text).then(() => toast('Route kopiert!'));
+}
+
+
+
+function downloadGPX(id) {
+  const r = routeResult.find(x => x.id === id);
+  if (!r) return;
+  const depot = document.getElementById('depot').value;
+  const depotGeo = geoCache[depot] || geoPoints[0];
+  const date = new Date().toISOString();
+  const NL = '\n';
+
+  function tag(t, v) { return '<' + t + '>' + v + '</' + t + '>'; }
+  function wpt(lat, lng, name) { return '  <wpt lat="' + lat + '" lon="' + lng + '">' + tag('name', escXml(name)) + '</' + 'wpt>'; }
+  function trkpt(lat, lng) { return '      <trkpt lat="' + lat + '" lon="' + lng + '"></' + 'trkpt>'; }
+
+  const lines = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push('<gpx version="1.1" creator="TrefzRoute" xmlns="http://www.topografix.com/GPX/1/1">');
+  lines.push('  ' + tag('metadata', tag('name', 'TrefzRoute Route ' + r.id) + tag('time', date)));
+
+  if (depotGeo) lines.push(wpt(depotGeo.lat, depotGeo.lng, 'Start: ' + depot));
+  const trkLines = [];
+  if (depotGeo) trkLines.push(trkpt(depotGeo.lat, depotGeo.lng));
+
+  let n = 0;
+  const seen = new Set();
+  r.stops.forEach(function(s) {
+    n++;
+    const g = geoCache[s.addr];
+    if (!g) return;
+    const lbl = (seen.has(s.addr) ? 'Stopp ' + n + ' (Folge)' : 'Stopp ' + n) + ': ' + s.addr + (s.arrivalTime ? ' ' + s.arrivalTime : '');
+    seen.add(s.addr);
+    lines.push(wpt(g.lat, g.lng, lbl));
+    trkLines.push(trkpt(g.lat, g.lng));
+  });
+
+  if (depotGeo) {
+    lines.push(wpt(depotGeo.lat, depotGeo.lng, 'Rueckkehr: ' + depot));
+    trkLines.push(trkpt(depotGeo.lat, depotGeo.lng));
+  }
+
+  lines.push('  <trk>');
+  lines.push('    ' + tag('name', 'Route ' + r.id));
+  lines.push('    <trkseg>');
+  trkLines.forEach(function(l) { lines.push(l); });
+  lines.push('    </' + 'trkseg>');
+  lines.push('  </' + 'trk>');
+  lines.push('</' + 'gpx>');
+
+  const gpx = lines.join(NL);
+  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'TrefzRoute_R' + String(r.id).padStart(2,'0') + '_' + new Date().toISOString().slice(0,10) + '.gpx';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  toast('Route ' + r.id + ' als GPX heruntergeladen!');
+}
+
+function escXml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</body>
+</html>
